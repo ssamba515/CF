@@ -3,6 +3,7 @@ import json
 import calendar
 import os
 import shutil
+import subprocess
 import webbrowser
 from datetime import datetime, timedelta
 from html import escape
@@ -1420,6 +1421,7 @@ class ToolInspectionApp:
         ttk.Button(button_row, text="조회", command=self.on_scan_submit, style="Primary.TButton").pack(side="left", padx=(0, 6))
         ttk.Button(button_row, text="엑셀 불러오기", command=self.import_workbook, style="Secondary.TButton").pack(side="left", padx=(0, 6))
         ttk.Button(button_row, text="전체 HTML/QR 갱신", command=self.export_all_assets, style="Primary.TButton").pack(side="left", padx=(0, 6))
+        ttk.Button(button_row, text="Netlify 업데이트", command=self.update_netlify, style="Primary.TButton").pack(side="left", padx=(0, 6))
         ttk.Button(button_row, text="설정", command=self.open_settings, style="Secondary.TButton").pack(side="left")
         self.status_var = tk.StringVar(value="준비 완료")
         ttk.Label(scan_panel, textvariable=self.status_var, style="Status.TLabel").grid(row=0, column=3, sticky="e", padx=(12, 0))
@@ -2378,7 +2380,7 @@ class ToolInspectionApp:
         rows = list_tools()
         if not rows:
             messagebox.showwarning("데이터 없음", "먼저 검사구 목록을 불러오세요.")
-            return
+            return 0
         success = 0
         for row in rows:
             export_tool_assets(row["management_no"], self.config, update_index=False)
@@ -2388,6 +2390,60 @@ class ToolInspectionApp:
         if self.selected_management_no:
             self.refresh_qr_preview(self.selected_management_no)
         messagebox.showinfo("전체 생성 완료", f"{success}건의 QR/HTML 카드를 갱신했습니다.\nGitHub에 push하면 Netlify에 자동 배포됩니다.")
+        return success
+
+    def run_git_command(self, args):
+        result = subprocess.run(
+            ["git", *args],
+            cwd=BASE_DIR.parent,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
+        if result.returncode != 0:
+            raise RuntimeError(output or f"git {' '.join(args)} 실패")
+        return output
+
+    def update_netlify(self):
+        rows = list_tools()
+        if not rows:
+            messagebox.showwarning("데이터 없음", "먼저 검사구 목록을 불러오세요.")
+            return
+        if not public_base_url(self.config):
+            messagebox.showwarning("Netlify URL 없음", "설정에서 Netlify URL을 먼저 입력하세요.")
+            return
+        try:
+            self.status_var.set("HTML/QR 생성 중...")
+            self.root.update_idletasks()
+            for row in rows:
+                export_tool_assets(row["management_no"], self.config, update_index=False)
+            export_index_page(self.config)
+            if self.selected_management_no:
+                self.refresh_qr_preview(self.selected_management_no)
+
+            self.status_var.set("Git 변경사항 확인 중...")
+            self.root.update_idletasks()
+            self.run_git_command(["add", "--", str(BASE_DIR / "검사구.py"), str(EXPORT_DIR)])
+            staged = self.run_git_command(["diff", "--cached", "--name-only"])
+            if staged:
+                message = f"Update inspection cards {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                self.status_var.set("Git 커밋 중...")
+                self.root.update_idletasks()
+                self.run_git_command(["commit", "-m", message])
+
+            self.status_var.set("GitHub push 중...")
+            self.root.update_idletasks()
+            push_output = self.run_git_command(["push"])
+            self.status_var.set("Netlify 업데이트 요청 완료")
+            detail = "변경사항을 GitHub에 push했습니다. Netlify 반영까지 잠시 기다려 주세요."
+            if not staged:
+                detail = "새로 커밋할 변경사항은 없었고, GitHub push 확인만 완료했습니다."
+            messagebox.showinfo("Netlify 업데이트 완료", detail)
+        except Exception as exc:
+            self.status_var.set("Netlify 업데이트 실패")
+            messagebox.showerror("Netlify 업데이트 실패", str(exc))
 
     def open_selected_card(self):
         if not self.selected_management_no:
