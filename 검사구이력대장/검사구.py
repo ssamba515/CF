@@ -973,33 +973,35 @@ def build_tool_html_safe(tool, inspections, qr_payload):
     * {{ box-sizing: border-box; }}
     body {{ margin:0; font-family:"Malgun Gothic", Arial, sans-serif; background:#f5f7fb; color:var(--text); }}
     .wrap {{ max-width:1120px; margin:0 auto; padding:12px 18px; }}
-    .sheet {{ position:relative; background:var(--panel); border:1px solid #d8dee8; border-radius:6px; padding:22px 34px 24px; box-shadow:0 8px 18px rgba(17,24,39,.06); }}
-    .title {{ font-size:28px; font-weight:800; margin:0 0 6px; letter-spacing:0; }}
+    .sheet {{ position:relative; background:var(--panel); border:1px solid #d8dee8; border-radius:6px; padding:24px 34px 24px; box-shadow:0 8px 18px rgba(17,24,39,.06); }}
+    .card-header {{ min-height:58px; padding-right:86px; margin-bottom:10px; }}
+    .title {{ font-size:26px; font-weight:800; margin:0; letter-spacing:0; line-height:1.25; }}
     .sub {{ color:var(--muted); margin:0 0 18px; }}
-    .top-grid {{ display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:stretch; margin:18px 0 22px 0; }}
+    .top-grid {{ display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:stretch; margin:10px 0 22px 0; }}
     .photo-card {{ background:#fff; border:1px solid #cfd8e6; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:222px; padding:5%; }}
-    .qr-card {{ position:absolute; top:14px; right:34px; width:64px; height:64px; display:flex; align-items:center; justify-content:center; }}
+    .qr-card {{ position:absolute; top:18px; right:34px; width:56px; height:56px; display:flex; align-items:center; justify-content:center; }}
     .lead-photo {{ width:100%; height:100%; object-fit:contain; display:block; }}
     .lead-photo-empty {{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:20px; }}
     .qr-image {{ width:100%; height:100%; object-fit:contain; display:block; }}
     .info-table {{ width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #cfd8e6; }}
-    .info-table th,.info-table td {{ border-bottom:1px solid #cfd8e6; border-right:1px solid #cfd8e6; padding:10px 12px; text-align:center; vertical-align:middle; }}
+    .info-table th,.info-table td {{ border-bottom:1px solid #cfd8e6; border-right:1px solid #cfd8e6; padding:9px 10px; text-align:center; vertical-align:middle; }}
     .info-table tr:last-child th,.info-table tr:last-child td {{ border-bottom:0; }}
     .info-table th:last-child,.info-table td:last-child {{ border-right:0; }}
-    .info-table th {{ width:13%; background:#f1f3f5; font-weight:800; letter-spacing:0; white-space:nowrap; }}
-    .info-table td {{ width:20%; font-size:16px; font-weight:700; word-break:break-word; }}
-    .section-title {{ background:#f1f3f5; border:1px solid #cfd8e6; border-bottom:0; font-size:20px; font-weight:800; margin:22px 0 0; padding:9px; text-align:center; }}
+    .info-table th {{ width:13%; background:#f1f3f5; font-size:15px; font-weight:800; letter-spacing:0; white-space:nowrap; }}
+    .info-table td {{ width:20%; font-size:15px; font-weight:700; word-break:break-word; }}
+    .section-title {{ background:#f1f3f5; border:1px solid #cfd8e6; border-bottom:0; font-size:18px; font-weight:800; margin:22px 0 0; padding:8px; text-align:center; }}
     .table-card {{ overflow:auto; }}
     .history-table {{ width:100%; border-collapse:collapse; min-width:980px; border:1px solid #cfd8e6; }}
-    .history-table th,.history-table td {{ border:1px solid #cfd8e6; padding:8px 8px; text-align:center; vertical-align:middle; }}
-    .history-table th {{ background:#f1f3f5; font-size:16px; font-weight:800; line-height:1.32; }}
-    .history-table td {{ font-size:14px; height:38px; }}
+    .history-table th,.history-table td {{ border:1px solid #cfd8e6; padding:7px 6px; text-align:center; vertical-align:middle; }}
+    .history-table th {{ background:#f1f3f5; font-size:15px; font-weight:800; line-height:1.3; }}
+    .history-table td {{ font-size:13px; height:36px; }}
     @media (max-width:760px) {{
       .wrap {{ padding:12px; }}
       .sheet {{ padding:18px 14px; }}
       .top-grid {{ grid-template-columns:1fr; margin-right:0; }}
       .photo-card {{ width:140px; min-height:150px; }}
-      .qr-card {{ width:86px; height:86px; }}
+      .card-header {{ min-height:54px; padding-right:78px; }}
+      .qr-card {{ width:62px; height:62px; right:14px; top:18px; }}
       .info-table th,.info-table td {{ padding:8px 6px; font-size:13px; }}
       .info-table th {{ letter-spacing:0; }}
       .history-table th {{ font-size:14px; }}
@@ -1009,7 +1011,9 @@ def build_tool_html_safe(tool, inspections, qr_payload):
 <body>
   <div class="wrap">
     <section class="sheet">
-      <h1 class="title">검사구 이력카드</h1>
+      <div class="card-header">
+        <h1 class="title">검사구 이력카드</h1>
+      </div>
       <div class="top-grid">
       <div class="photo-card">{lead_photo_html}</div>
       <table class="info-table">
@@ -1211,7 +1215,7 @@ class ToolInspectionApp:
             bordercolor=BORDER,
             lightcolor=BORDER,
             darkcolor=BORDER,
-            rowheight=24,
+            rowheight=28,
             font=("Malgun Gothic", 9),
         )
         self.style.map("Modern.Treeview", background=[("selected", "#BFDBFE")], foreground=[("selected", TEXT_MAIN)])
@@ -1222,8 +1226,8 @@ class ToolInspectionApp:
             bordercolor=BORDER,
             lightcolor=BORDER,
             darkcolor=BORDER,
-            padding=(8, 5),
-            font=("Malgun Gothic", 10, "bold"),
+            padding=(8, 4),
+            font=("Malgun Gothic", 9, "bold"),
         )
         self.style.map("Modern.Treeview.Heading", background=[("active", SURFACE_ALT)])
 
@@ -1540,29 +1544,65 @@ class ToolInspectionApp:
         self.make_button(title_row, "이력 카드 열기", self.open_selected_card, "secondary", padx=10).pack(side="right")
         history_wrap = tk.Frame(self.history_panel, bg=UI["panel"])
         history_wrap.pack(fill="both", expand=True, padx=PANEL_PAD, pady=(0, 8))
+        self.history_column_specs = [
+            ("inspection_date", "점검일", 82),
+            ("master_sample_match", "MASTER\nSAMPLE\n매칭상태", 104),
+            ("storage_status", "보관 여부", 102),
+            ("cleaning_status", "청소여부", 102),
+            ("wear_status", "마모상태", 118),
+            ("fit_status", "유격상태", 118),
+            ("result_text", "판정", 74),
+            ("approval", "결재", 74),
+            ("memo", "비고", 82),
+        ]
+        self.build_history_header(history_wrap)
         self.history_tree = ttk.Treeview(
             history_wrap,
-            columns=("inspection_date", "master_sample_match", "storage_status", "cleaning_status", "wear_status", "fit_status", "result_text", "approval", "memo"),
-            show="headings",
+            columns=[column for column, _title, _width in self.history_column_specs],
+            show="",
             height=7,
             style="Modern.Treeview",
         )
-        for name, title, width in [
-            ("inspection_date", "점검일", 90),
-            ("master_sample_match", "MASTER SAMPLE", 120),
-            ("storage_status", "보관 여부", 90),
-            ("cleaning_status", "청소여부", 90),
-            ("wear_status", "마모상태", 90),
-            ("fit_status", "유격상태", 90),
-            ("result_text", "판정", 100),
-            ("approval", "결재", 110),
-            ("memo", "비고", 160),
-        ]:
-            self.history_tree.heading(name, text=title, anchor="center")
+        self.history_tree.column("#0", width=0, minwidth=0, stretch=False)
+        for name, _title, width in self.history_column_specs:
             self.history_tree.column(name, width=width, minwidth=width, anchor="center", stretch=False)
         self.history_tree.pack(fill="both", expand=True)
         self.lock_tree_columns(self.history_tree)
         self.history_tree.bind("<Double-1>", lambda _event: self.edit_selected_inspection())
+
+    def build_history_header(self, parent):
+        header = tk.Frame(parent, bg=UI["panel"])
+        header.pack(anchor="w", fill="x")
+
+        def cell(text, col, row, width, height=32, rowspan=1):
+            frame = tk.Frame(header, width=width, height=height * rowspan, bg="#F1F3F5", highlightbackground="#CFD8E6", highlightthickness=1)
+            frame.grid(row=row, column=col, rowspan=rowspan, sticky="nsew")
+            frame.grid_propagate(False)
+            tk.Label(
+                frame,
+                text=text,
+                bg="#F1F3F5",
+                fg=UI["text"],
+                font=("맑은 고딕", 9, "bold"),
+                justify="center",
+                anchor="center",
+                wraplength=max(width - 10, 40),
+            ).pack(fill="both", expand=True)
+
+        widths = [width for _name, _title, width in self.history_column_specs]
+        cell("점검일", 0, 0, widths[0], rowspan=2)
+        cell("MASTER\nSAMPLE\n매칭상태", 1, 0, widths[1], rowspan=2)
+        cell("보관상태", 2, 0, widths[2])
+        cell("청결 상태", 3, 0, widths[3])
+        cell("제품 매칭면", 4, 0, widths[4])
+        cell("제품안착시", 5, 0, widths[5])
+        cell("판정", 6, 0, widths[6], rowspan=2)
+        cell("결재", 7, 0, widths[7], rowspan=2)
+        cell("비고", 8, 0, widths[8], rowspan=2)
+        cell("보관 여부", 2, 1, widths[2])
+        cell("청소여부", 3, 1, widths[3])
+        cell("마모상태", 4, 1, widths[4])
+        cell("유격상태", 5, 1, widths[5])
 
     def open_inspection_dialog(self, inspection=None):
         if not self.selected_management_no:
