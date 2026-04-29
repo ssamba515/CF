@@ -1545,15 +1545,15 @@ class ToolInspectionApp:
         history_wrap = tk.Frame(self.history_panel, bg=UI["panel"])
         history_wrap.pack(fill="both", expand=True, padx=PANEL_PAD, pady=(0, 8))
         self.history_column_specs = [
-            ("inspection_date", "점검일", 82),
-            ("master_sample_match", "MASTER\nSAMPLE\n매칭상태", 104),
-            ("storage_status", "보관 여부", 102),
-            ("cleaning_status", "청소여부", 102),
-            ("wear_status", "마모상태", 118),
-            ("fit_status", "유격상태", 118),
-            ("result_text", "판정", 74),
-            ("approval", "결재", 74),
-            ("memo", "비고", 82),
+            ("inspection_date", "점검일", 90),
+            ("master_sample_match", "MASTER\nSAMPLE\n매칭상태", 118),
+            ("storage_status", "보관 여부", 104),
+            ("cleaning_status", "청소여부", 104),
+            ("wear_status", "마모상태", 116),
+            ("fit_status", "유격상태", 116),
+            ("result_text", "판정", 84),
+            ("approval", "결재", 84),
+            ("memo", "비고", 96),
         ]
         self.build_history_header(history_wrap)
         self.history_tree = ttk.Treeview(
@@ -1571,38 +1571,43 @@ class ToolInspectionApp:
         self.history_tree.bind("<Double-1>", lambda _event: self.edit_selected_inspection())
 
     def build_history_header(self, parent):
-        header = tk.Frame(parent, bg=UI["panel"])
-        header.pack(anchor="w", fill="x")
-
-        def cell(text, col, row, width, height=32, rowspan=1):
-            frame = tk.Frame(header, width=width, height=height * rowspan, bg="#F1F3F5", highlightbackground="#CFD8E6", highlightthickness=1)
-            frame.grid(row=row, column=col, rowspan=rowspan, sticky="nsew")
-            frame.grid_propagate(False)
-            tk.Label(
-                frame,
-                text=text,
-                bg="#F1F3F5",
-                fg=UI["text"],
-                font=("맑은 고딕", 9, "bold"),
-                justify="center",
-                anchor="center",
-                wraplength=max(width - 10, 40),
-            ).pack(fill="both", expand=True)
-
+        header_height = 64
         widths = [width for _name, _title, width in self.history_column_specs]
-        cell("점검일", 0, 0, widths[0], rowspan=2)
-        cell("MASTER\nSAMPLE\n매칭상태", 1, 0, widths[1], rowspan=2)
-        cell("보관상태", 2, 0, widths[2])
-        cell("청결 상태", 3, 0, widths[3])
-        cell("제품 매칭면", 4, 0, widths[4])
-        cell("제품안착시", 5, 0, widths[5])
-        cell("판정", 6, 0, widths[6], rowspan=2)
-        cell("결재", 7, 0, widths[7], rowspan=2)
-        cell("비고", 8, 0, widths[8], rowspan=2)
-        cell("보관 여부", 2, 1, widths[2])
-        cell("청소여부", 3, 1, widths[3])
-        cell("마모상태", 4, 1, widths[4])
-        cell("유격상태", 5, 1, widths[5])
+        total_width = sum(widths)
+        canvas = tk.Canvas(parent, width=total_width, height=header_height, bg=UI["panel"], highlightthickness=0, bd=0)
+        canvas.pack(anchor="w", fill="x")
+
+        def draw_cell(x, y, width, height, text):
+            canvas.create_rectangle(x, y, x + width, y + height, fill="#F1F3F5", outline="#CFD8E6")
+            canvas.create_text(
+                x + width / 2,
+                y + height / 2,
+                text=text,
+                fill=UI["text"],
+                font=("맑은 고딕", 8, "bold"),
+                justify="center",
+                width=max(width - 8, 40),
+            )
+
+        x_positions = []
+        x = 0
+        for width in widths:
+            x_positions.append(x)
+            x += width
+
+        draw_cell(x_positions[0], 0, widths[0], header_height, "점검일")
+        draw_cell(x_positions[1], 0, widths[1], header_height, "MASTER\nSAMPLE\n매칭상태")
+        draw_cell(x_positions[2], 0, widths[2], 32, "보관상태")
+        draw_cell(x_positions[3], 0, widths[3], 32, "청결 상태")
+        draw_cell(x_positions[4], 0, widths[4], 32, "제품 매칭면")
+        draw_cell(x_positions[5], 0, widths[5], 32, "제품안착시")
+        draw_cell(x_positions[6], 0, widths[6], header_height, "판정")
+        draw_cell(x_positions[7], 0, widths[7], header_height, "결재")
+        draw_cell(x_positions[8], 0, widths[8], header_height, "비고")
+        draw_cell(x_positions[2], 32, widths[2], 32, "보관 여부")
+        draw_cell(x_positions[3], 32, widths[3], 32, "청소여부")
+        draw_cell(x_positions[4], 32, widths[4], 32, "마모상태")
+        draw_cell(x_positions[5], 32, widths[5], 32, "유격상태")
 
     def open_inspection_dialog(self, inspection=None):
         if not self.selected_management_no:
