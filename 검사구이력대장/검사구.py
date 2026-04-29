@@ -949,7 +949,19 @@ def build_tool_html_safe(tool, inspections, qr_payload):
             </tr>
             """
         )
-    history_html = "\n".join(rows) if rows else '<tr><td colspan="9">점검 이력이 없습니다.</td></tr>'
+    history_html = "\n".join(rows) if rows else """
+            <tr>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+              <td>&nbsp;</td>
+            </tr>
+            """
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -976,13 +988,12 @@ def build_tool_html_safe(tool, inspections, qr_payload):
     .info-table th:last-child,.info-table td:last-child {{ border-right:0; }}
     .info-table th {{ width:13%; background:#f1f3f5; font-weight:800; letter-spacing:0; white-space:nowrap; }}
     .info-table td {{ width:20%; font-size:16px; font-weight:700; word-break:break-word; }}
-    .section-title {{ background:#d9d9d9; border:1px solid var(--line); border-bottom:0; font-size:20px; font-weight:800; margin:22px 0 0; padding:9px; text-align:center; }}
+    .section-title {{ background:#f1f3f5; border:1px solid #cfd8e6; border-bottom:0; font-size:20px; font-weight:800; margin:22px 0 0; padding:9px; text-align:center; }}
     .table-card {{ overflow:auto; }}
-    .history-table {{ width:100%; border-collapse:collapse; min-width:980px; border:1px solid var(--line); }}
-    .history-table th,.history-table td {{ border:1px solid var(--line); padding:8px 8px; text-align:center; vertical-align:middle; }}
-    .history-table th {{ background:#d9d9d9; font-size:16px; font-weight:800; line-height:1.32; }}
+    .history-table {{ width:100%; border-collapse:collapse; min-width:980px; border:1px solid #cfd8e6; }}
+    .history-table th,.history-table td {{ border:1px solid #cfd8e6; padding:8px 8px; text-align:center; vertical-align:middle; }}
+    .history-table th {{ background:#f1f3f5; font-size:16px; font-weight:800; line-height:1.32; }}
     .history-table td {{ font-size:14px; height:38px; }}
-    .qr {{ margin-top:18px; color:var(--muted); font-size:12px; word-break:break-all; }}
     @media (max-width:760px) {{
       .wrap {{ padding:12px; }}
       .sheet {{ padding:18px 14px; }}
@@ -991,6 +1002,7 @@ def build_tool_html_safe(tool, inspections, qr_payload):
       .qr-card {{ width:86px; height:86px; }}
       .info-table th,.info-table td {{ padding:8px 6px; font-size:13px; }}
       .info-table th {{ letter-spacing:0; }}
+      .history-table th {{ font-size:14px; }}
     }}
   </style>
 </head>
@@ -998,7 +1010,6 @@ def build_tool_html_safe(tool, inspections, qr_payload):
   <div class="wrap">
     <section class="sheet">
       <h1 class="title">검사구 이력카드</h1>
-      <p class="sub">QR 스캔 또는 관리번호 조회용 이력카드</p>
       <div class="top-grid">
       <div class="photo-card">{lead_photo_html}</div>
       <table class="info-table">
@@ -1062,7 +1073,6 @@ def build_tool_html_safe(tool, inspections, qr_payload):
         <tbody>{history_html}</tbody>
       </table>
       </div>
-      <div class="qr">QR 주소: {escape(qr_payload)}</div>
     </section>
   </div>
 </body>
