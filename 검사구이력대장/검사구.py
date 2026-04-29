@@ -638,14 +638,14 @@ def build_index_html(tools, config):
             </tr>
             """
         )
-    body_rows = "\n".join(rows) if rows else '<tr><td colspan="4">No cards have been exported yet.</td></tr>'
+    body_rows = "\n".join(rows) if rows else '<tr><td colspan="4">생성된 이력카드가 없습니다.</td></tr>'
     public_url = escape(base_url.rstrip("/")) if base_url else "-"
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Inspection Tool Cards</title>
+  <title>검사구 이력카드 목록</title>
   <style>
     :root {{ --bg:#f5f7fb; --panel:#ffffff; --text:#10243e; --muted:#607089; --line:#d9e2f1; --accent:#2563eb; }}
     * {{ box-sizing:border-box; }}
@@ -667,8 +667,8 @@ def build_index_html(tools, config):
 </head>
 <body>
   <main>
-    <h1>Inspection Tool Cards</h1>
-    <p>Public URL: {public_url}<br>Open a card below. QR links should use /cards/관리번호.html.</p>
+    <h1>검사구 이력카드 목록</h1>
+    <p>공개 주소: {public_url}<br>관리번호를 선택하면 해당 검사구 이력카드가 열립니다.</p>
     <section class="panel">
       <table>
         <thead><tr><th>관리번호</th><th>품명</th><th>차종</th><th>주기</th></tr></thead>
@@ -923,26 +923,29 @@ def build_tool_html_safe(tool, inspections, qr_payload):
     for index, item in enumerate(inspections, start=1):
         reviewer_html = escape(normalize_text(item.get("reviewer")) or normalize_text(item.get("author")))
         approver_html = escape(normalize_text(item.get("approver")))
+        approval_html = " / ".join(part for part in [reviewer_html, approver_html] if part) or "-"
         rows.append(
             f"""
             <tr>
-              <td>{index}</td>
               <td>{escape(normalize_text(item['inspection_date']))}</td>
+              <td>-</td>
+              <td>{escape(normalize_text(item['usage_flag'])) or "-"}</td>
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
               <td>{escape(normalize_text(item['result_text']))}</td>
-              <td>{escape(normalize_text(item['usage_flag']))}</td>
-              <td>{reviewer_html}</td>
-              <td>{approver_html}</td>
+              <td>{approval_html}</td>
               <td>{escape(normalize_text(item['memo']))}</td>
             </tr>
             """
         )
-    history_html = "\n".join(rows) if rows else '<tr><td colspan="7">No inspection history.</td></tr>'
+    history_html = "\n".join(rows) if rows else '<tr><td colspan="9">점검 이력이 없습니다.</td></tr>'
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{escape(tool["management_no"])} Inspection Card</title>
+  <title>{escape(tool["management_no"])} 검사구 이력카드</title>
   <style>
     :root {{ --bg:#f5f7fb; --panel:#ffffff; --text:#111827; --muted:#5b6472; --line:#111827; --soft:#f3f4f6; }}
     * {{ box-sizing: border-box; }}
@@ -963,11 +966,12 @@ def build_tool_html_safe(tool, inspections, qr_payload):
     .info-table th:last-child,.info-table td:last-child {{ border-right:0; }}
     .info-table th {{ width:13%; background:#f3f7f4; font-weight:800; letter-spacing:.08em; white-space:nowrap; }}
     .info-table td {{ width:20%; font-size:17px; font-weight:700; word-break:break-word; }}
-    .section-title {{ font-size:18px; font-weight:800; margin:22px 0 10px; }}
+    .section-title {{ background:#d9d9d9; border:2px solid var(--line); border-bottom:0; font-size:22px; font-weight:800; margin:22px 0 0; padding:10px; text-align:center; }}
     .table-card {{ overflow:auto; }}
-    .history-table {{ width:100%; border-collapse:collapse; min-width:860px; border:1px solid #d5dbe5; }}
-    .history-table th,.history-table td {{ border-bottom:1px solid #d5dbe5; padding:12px 10px; text-align:center; vertical-align:middle; }}
-    .history-table th {{ background:#f3f7f4; font-weight:800; }}
+    .history-table {{ width:100%; border-collapse:collapse; min-width:980px; border:2px solid var(--line); }}
+    .history-table th,.history-table td {{ border:2px solid var(--line); padding:10px 8px; text-align:center; vertical-align:middle; }}
+    .history-table th {{ background:#d9d9d9; font-size:18px; font-weight:800; line-height:1.35; }}
+    .history-table td {{ min-height:42px; }}
     .qr {{ margin-top:18px; color:var(--muted); font-size:12px; word-break:break-all; }}
     @media (max-width:760px) {{
       .wrap {{ padding:12px; }}
@@ -983,8 +987,8 @@ def build_tool_html_safe(tool, inspections, qr_payload):
 <body>
   <div class="wrap">
     <section class="sheet">
-      <h1 class="title">Inspection History Card</h1>
-      <p class="sub">HTML card for QR scan or management number lookup</p>
+      <h1 class="title">검사구 이력카드</h1>
+      <p class="sub">QR 스캔 또는 관리번호 조회용 이력카드</p>
       <div class="top-grid">
       <div class="photo-card">{lead_photo_html}</div>
       <table class="info-table">
@@ -1023,16 +1027,32 @@ def build_tool_html_safe(tool, inspections, qr_payload):
       </table>
       </div>
       <div class="qr-card"><img class="qr-image" src="{qr_img_src}" alt="QR"></div>
-      <div class="section-title">Inspection History</div>
+      <div class="section-title">점검 결과</div>
       <div class="table-card">
       <table class="history-table">
         <thead>
-          <tr><th>No.</th><th>Date</th><th>Result</th><th>Usage</th><th>Manager</th><th>Approver</th><th>Memo</th></tr>
+          <tr>
+            <th rowspan="2">점검일</th>
+            <th rowspan="2">MASTER<br>SAMPLE<br>매칭상태</th>
+            <th>보관상태</th>
+            <th>청결 상태</th>
+            <th>제품 매칭면</th>
+            <th>제품안착시</th>
+            <th rowspan="2">판정</th>
+            <th rowspan="2">결재</th>
+            <th rowspan="2">비고</th>
+          </tr>
+          <tr>
+            <th>보관 여부</th>
+            <th>청소여부</th>
+            <th>마모상태</th>
+            <th>유격상태</th>
+          </tr>
         </thead>
         <tbody>{history_html}</tbody>
       </table>
       </div>
-      <div class="qr">QR: {escape(qr_payload)}</div>
+      <div class="qr">QR 주소: {escape(qr_payload)}</div>
     </section>
   </div>
 </body>

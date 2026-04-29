@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SJ-CF-003 Inspection Card</title>
+  <title>SJ-CF-003 검사구 이력카드</title>
   <style>
     :root { --bg:#f5f7fb; --panel:#ffffff; --text:#111827; --muted:#5b6472; --line:#111827; --soft:#f3f4f6; }
     * { box-sizing: border-box; }
@@ -24,11 +24,12 @@
     .info-table th:last-child,.info-table td:last-child { border-right:0; }
     .info-table th { width:13%; background:#f3f7f4; font-weight:800; letter-spacing:.08em; white-space:nowrap; }
     .info-table td { width:20%; font-size:17px; font-weight:700; word-break:break-word; }
-    .section-title { font-size:18px; font-weight:800; margin:22px 0 10px; }
+    .section-title { background:#d9d9d9; border:2px solid var(--line); border-bottom:0; font-size:22px; font-weight:800; margin:22px 0 0; padding:10px; text-align:center; }
     .table-card { overflow:auto; }
-    .history-table { width:100%; border-collapse:collapse; min-width:860px; border:1px solid #d5dbe5; }
-    .history-table th,.history-table td { border-bottom:1px solid #d5dbe5; padding:12px 10px; text-align:center; vertical-align:middle; }
-    .history-table th { background:#f3f7f4; font-weight:800; }
+    .history-table { width:100%; border-collapse:collapse; min-width:980px; border:2px solid var(--line); }
+    .history-table th,.history-table td { border:2px solid var(--line); padding:10px 8px; text-align:center; vertical-align:middle; }
+    .history-table th { background:#d9d9d9; font-size:18px; font-weight:800; line-height:1.35; }
+    .history-table td { min-height:42px; }
     .qr { margin-top:18px; color:var(--muted); font-size:12px; word-break:break-all; }
     @media (max-width:760px) {
       .wrap { padding:12px; }
@@ -44,8 +45,8 @@
 <body>
   <div class="wrap">
     <section class="sheet">
-      <h1 class="title">Inspection History Card</h1>
-      <p class="sub">HTML card for QR scan or management number lookup</p>
+      <h1 class="title">검사구 이력카드</h1>
+      <p class="sub">QR 스캔 또는 관리번호 조회용 이력카드</p>
       <div class="top-grid">
       <div class="photo-card"><div class="lead-photo lead-photo-empty">사진</div></div>
       <table class="info-table">
@@ -84,16 +85,32 @@
       </table>
       </div>
       <div class="qr-card"><img class="qr-image" src="../qrcode/SJ-CF-003.png" alt="QR"></div>
-      <div class="section-title">Inspection History</div>
+      <div class="section-title">점검 결과</div>
       <div class="table-card">
       <table class="history-table">
         <thead>
-          <tr><th>No.</th><th>Date</th><th>Result</th><th>Usage</th><th>Manager</th><th>Approver</th><th>Memo</th></tr>
+          <tr>
+            <th rowspan="2">점검일</th>
+            <th rowspan="2">MASTER<br>SAMPLE<br>매칭상태</th>
+            <th>보관상태</th>
+            <th>청결 상태</th>
+            <th>제품 매칭면</th>
+            <th>제품안착시</th>
+            <th rowspan="2">판정</th>
+            <th rowspan="2">결재</th>
+            <th rowspan="2">비고</th>
+          </tr>
+          <tr>
+            <th>보관 여부</th>
+            <th>청소여부</th>
+            <th>마모상태</th>
+            <th>유격상태</th>
+          </tr>
         </thead>
-        <tbody><tr><td colspan="7">No inspection history.</td></tr></tbody>
+        <tbody><tr><td colspan="9">점검 이력이 없습니다.</td></tr></tbody>
       </table>
       </div>
-      <div class="qr">QR: https://elegant-licorice-178dbe.netlify.app/cards/SJ-CF-003.html</div>
+      <div class="qr">QR 주소: https://elegant-licorice-178dbe.netlify.app/cards/SJ-CF-003.html</div>
     </section>
   </div>
 </body>
