@@ -712,9 +712,10 @@ def qr_payload_for_tool(tool, config):
     base_url = public_base_url(config)
     if base_url:
         base_url = base_url.rstrip("/")
+        card_slug = management_no.lower()
         if base_url.lower().endswith("/cards"):
-            return f"{base_url}/{management_no}.html"
-        return f"{base_url}/cards/{management_no}.html"
+            return f"{base_url}/{card_slug}"
+        return f"{base_url}/cards/{card_slug}"
     return f"{normalize_text(config.get('scan_prefix'))}{management_no}"
 
 
@@ -789,7 +790,7 @@ def build_index_html(tools, config):
         management_no = normalize_text(tool.get("management_no"))
         if not management_no:
             continue
-        card_href = f"cards/{escape(management_no)}.html"
+        card_href = f"cards/{escape(management_no.lower())}"
         rows.append(
             f"""
             <tr>
@@ -1181,8 +1182,12 @@ def export_tool_assets(management_no, config, update_index=True):
     qr_payload = qr_payload_for_tool(tool, config)
     qr_path = QR_DIR / f"{management_no}.png"
     card_path = CARD_DIR / f"{management_no}.html"
+    card_alias_path = CARD_DIR / management_no.lower() / "index.html"
     render_qr_image(qr_payload, qr_path)
-    card_path.write_text(build_tool_html_safe(tool, inspections, qr_payload), encoding="utf-8")
+    card_html = build_tool_html_safe(tool, inspections, qr_payload)
+    card_path.write_text(card_html, encoding="utf-8")
+    card_alias_path.parent.mkdir(parents=True, exist_ok=True)
+    card_alias_path.write_text(card_html, encoding="utf-8")
 
     if update_index:
         export_index_page(config)
