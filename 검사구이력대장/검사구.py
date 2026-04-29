@@ -2285,29 +2285,19 @@ class ToolInspectionApp:
     def open_settings(self):
         win = tk.Toplevel(self.root)
         win.title("설정")
-        win.geometry("840x520")
+        win.geometry("840x360")
         win.configure(bg=UI["panel"])
 
         vars_map = {
             "workbook_path": tk.StringVar(value=self.config.get("workbook_path", "")),
-            "nas_sync_dir": tk.StringVar(value=self.config.get("nas_sync_dir", "")),
-            "nas_base_url": tk.StringVar(value=self.config.get("nas_base_url", "")),
             "netlify_site_url": tk.StringVar(value=self.config.get("netlify_site_url", "")),
-            "webdav_url": tk.StringVar(value=self.config.get("webdav_url", "")),
-            "webdav_username": tk.StringVar(value=self.config.get("webdav_username", "")),
-            "webdav_password": tk.StringVar(value=self.config.get("webdav_password", "")),
             "company_name": tk.StringVar(value=self.config.get("company_name", "")),
             "scan_prefix": tk.StringVar(value=self.config.get("scan_prefix", "")),
         }
 
         fields = [
             ("workbook_path", "기본 엑셀 경로", ""),
-            ("nas_sync_dir", "Web Station 폴더", ""),
-            ("nas_base_url", "DDNS / Web URL", ""),
-            ("netlify_site_url", "Netlify URL", "예: https://sejiqc.netlify.app"),
-            ("webdav_url", "WebDAV URL", "예: https://sejiqc.synology.me:5006/web"),
-            ("webdav_username", "WebDAV 계정", ""),
-            ("webdav_password", "WebDAV 비밀번호", ""),
+            ("netlify_site_url", "Netlify URL", "예: https://elegant-licorice-178dbe.netlify.app"),
             ("company_name", "기본 담당자", ""),
             ("scan_prefix", "QR 텍스트 Prefix", ""),
         ]
@@ -2316,32 +2306,20 @@ class ToolInspectionApp:
             row = tk.Frame(win, bg=UI["panel"])
             row.pack(fill="x", padx=16, pady=6)
             tk.Label(row, text=label, width=18, anchor="w", bg=UI["panel"], font=("맑은 고딕", 10, "bold")).pack(side="left")
-            entry = tk.Entry(row, textvariable=vars_map[key], font=("맑은 고딕", 10), show="*" if key == "webdav_password" else "")
+            entry = tk.Entry(row, textvariable=vars_map[key], font=("맑은 고딕", 10))
             entry.pack(side="left", fill="x", expand=True)
             if placeholder:
                 tk.Label(row, text=placeholder, width=34, anchor="w", bg=UI["panel"], fg=UI["muted"], font=("맑은 고딕", 9)).pack(side="left", padx=(8, 0))
 
         guide = (
-            "집/외부 작업: Web Station 폴더는 비워두고 WebDAV URL, 계정, 비밀번호를 입력하세요.\n"
-            "회사 내부망 작업: Web Station 폴더=\\\\192.169.0.2\\web 또는 \\\\sejiqc\\web 을 사용할 수 있습니다.\n"
-            "QR 외부 주소: DDNS / Web URL=https://sejiqc.synology.me\n"
-            "WebDAV URL은 Synology WebDAV Server 패키지를 켠 뒤 보통 https://도메인:5006/web 형식입니다."
+            "GitHub와 Netlify를 사용하므로 공개 이력카드 주소는 Netlify URL만 사용합니다.\n"
+            "설정 저장 후 전체 HTML/QR 갱신을 실행하고 GitHub에 push하면 Netlify가 자동 배포합니다."
         )
         tk.Label(win, text=guide, justify="left", wraplength=780, bg=UI["panel"], fg=UI["muted"], font=("맑은 고딕", 9)).pack(anchor="w", padx=16, pady=(8, 10))
 
         def save_and_close():
-            candidate_url = vars_map["nas_base_url"].get().strip()
-            if candidate_url and is_quickconnect_url(candidate_url):
-                messagebox.showwarning(
-                    "DDNS / Web Station 권장",
-                    "QuickConnect 주소는 QR 공개 링크용으로 적합하지 않습니다.\n"
-                    "DDNS 또는 Web Station URL을 넣어 주세요.\n"
-                    "예: https://sejiqc.synology.me",
-                )
-                return
             for key, var in vars_map.items():
-                value = var.get().strip()
-                self.config[key] = normalize_network_path(value) if key == "nas_sync_dir" else value
+                self.config[key] = var.get().strip()
             save_config(self.config)
             self.reset_inspection_form()
             if self.selected_management_no:
