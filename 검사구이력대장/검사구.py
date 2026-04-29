@@ -2,6 +2,7 @@
 import json
 import calendar
 import os
+import re
 import shutil
 import subprocess
 import webbrowser
@@ -66,6 +67,14 @@ SIDE_PHOTO_WIDTH = 220
 SIDE_PHOTO_HEIGHT = 180
 QR_PREVIEW_SIZE = 72
 FIELD_LABEL_WIDTH = 9
+MANAGEMENT_NO_PREFIX = "SJ-CF"
+MANAGEMENT_NO_DIGITS = 3
+DEFAULT_TOOL_VALUES = {
+    "cycle": "1회/년",
+    "storage_location": "측정실",
+    "department": "품질팀",
+    "inspection_method": "체크시트",
+}
 HEADER_LOGO_PATH = BASE_DIR / "logo.png"
 PERSON_PHOTO_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif")
 KNOWN_KR_HOLIDAYS = {
@@ -446,13 +455,34 @@ def get_tool(management_no):
     return None
 
 
-def save_tool_record(record):
+def next_management_no(prefix=MANAGEMENT_NO_PREFIX, digits=MANAGEMENT_NO_DIGITS):
+    pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$", re.IGNORECASE)
+    last_number = 0
+    for item in load_db()["tools"]:
+        match = pattern.match(normalize_text(item.get("management_no")))
+        if match:
+            last_number = max(last_number, int(match.group(1)))
+    return f"{prefix}-{last_number + 1:0{digits}d}"
+
+
+def save_tool_record(record, original_management_no=None):
     management_no = normalize_text(record.get("management_no"))
     if not management_no:
         raise ValueError("관리번호는 필수입니다.")
+    original_management_no = normalize_text(original_management_no)
     timestamp = now_text()
     data = load_db()
     tools = data["tools"]
+    if original_management_no and original_management_no != management_no:
+        if any(item["management_no"] == management_no for item in tools):
+            raise ValueError(f"{management_no} 관리번호가 이미 있습니다.")
+        for item in tools:
+            if item["management_no"] == original_management_no:
+                item["management_no"] = management_no
+                for inspection in data["inspections"]:
+                    if inspection["management_no"] == original_management_no:
+                        inspection["management_no"] = management_no
+                break
     for item in tools:
         if item["management_no"] == management_no:
             item.update(
@@ -473,6 +503,7 @@ def save_tool_record(record):
                     "updated_at": timestamp,
                 }
             )
+            data["tools"] = sorted(tools, key=lambda item: item["management_no"])
             save_db(data)
             return
     tools.append(
@@ -1968,7 +1999,10 @@ class ToolInspectionApp:
 
         edit_vars = {}
         for row, (key, label) in enumerate(fields):
-            value = "" if new_record else self.tool_vars[key].get()
+            if new_record:
+                value = next_management_no() if key == "management_no" else DEFAULT_TOOL_VALUES.get(key, "")
+            else:
+                value = self.tool_vars[key].get()
             edit_vars[key] = tk.StringVar(value=value)
             tk.Label(
                 panel,
@@ -1979,7 +2013,7 @@ class ToolInspectionApp:
                 fg=UI["text"],
                 font=("맑은 고딕", 10, "bold"),
             ).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=5)
-            tk.Entry(
+            entry = tk.Entry(
                 panel,
                 textvariable=edit_vars[key],
                 font=("맑은 고딕", 10),
@@ -1990,7 +2024,17 @@ class ToolInspectionApp:
                 highlightthickness=1,
                 highlightbackground=UI["line"],
                 highlightcolor=UI["accent"],
-            ).grid(row=row, column=1, sticky="ew", pady=5, ipady=4)
+                state="readonly" if new_record and key == "management_no" else "normal",
+            )
+            entry.grid(row=row, column=1, sticky="ew", pady=5, ipady=4)
+            if new_record and key == "management_no":
+                def enable_management_no_edit(_event, management_entry=entry):
+                    management_entry.configure(state="normal")
+                    management_entry.focus_set()
+                    management_entry.select_range(0, "end")
+                    self.status_var.set("관리번호를 직접 수정할 수 있습니다.")
+
+                entry.bind("<Button-1>", enable_management_no_edit)
 
         image_path_var = tk.StringVar(value="" if new_record else self.tool_vars["image_path"].get())
         image_row = tk.Frame(panel, bg=UI["panel"])
@@ -2035,16 +2079,24 @@ class ToolInspectionApp:
 
         def save_and_close():
             payload = {key: var.get() for key, var in edit_vars.items()}
-            existing_tool = get_tool(self.selected_management_no) if self.selected_management_no else {}
-            payload["item_name"] = normalize_text(existing_tool.get("item_name") or self.tool_vars["item_name"].get())
-            payload["inspection_method"] = normalize_text(existing_tool.get("inspection_method") or self.tool_vars["inspection_method"].get())
+            existing_tool = get_tool(self.selected_management_no) if not new_record and self.selected_management_no else {}
+            if new_record:
+                payload["item_name"] = normalize_text(payload.get("category"))
+                payload["inspection_method"] = DEFAULT_TOOL_VALUES["inspection_method"]
+                payload["notes"] = ""
+            else:
+                payload["item_name"] = normalize_text(existing_tool.get("item_name") or self.tool_vars["item_name"].get())
+                payload["inspection_method"] = normalize_text(existing_tool.get("inspection_method") or self.tool_vars["inspection_method"].get())
+                payload["notes"] = normalize_text(existing_tool.get("notes") or self.notes_text.get("1.0", "end").strip())
             payload["image_path"] = image_path_var.get()
-            payload["notes"] = normalize_text(existing_tool.get("notes") or self.notes_text.get("1.0", "end").strip())
             if not payload["management_no"].strip():
                 messagebox.showwarning("관리번호", "관리번호는 필수입니다.")
                 return
+            if new_record and get_tool(payload["management_no"].strip()):
+                messagebox.showwarning("관리번호", f"{payload['management_no'].strip()} 관리번호가 이미 있습니다.")
+                return
             try:
-                save_tool_record(payload)
+                save_tool_record(payload, None if new_record else self.selected_management_no)
                 self.refresh_tool_list()
                 self.selected_management_no = payload["management_no"].strip()
                 for key in self.tool_vars:
@@ -2276,6 +2328,10 @@ class ToolInspectionApp:
         self.selected_management_no = ""
         for var in self.tool_vars.values():
             var.set("")
+        self.tool_vars["management_no"].set(next_management_no())
+        for key, value in DEFAULT_TOOL_VALUES.items():
+            if key in self.tool_vars:
+                self.tool_vars[key].set(value)
         self.notes_text.delete("1.0", "end")
         self.refresh_tool_image_preview("")
         for item in self.history_tree.get_children():
