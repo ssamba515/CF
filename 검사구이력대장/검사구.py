@@ -4,13 +4,10 @@ import calendar
 import os
 import shutil
 import webbrowser
-import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from html import escape
 from pathlib import Path
 from urllib.parse import quote
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
@@ -70,15 +67,58 @@ QR_PREVIEW_SIZE = 72
 FIELD_LABEL_WIDTH = 9
 HEADER_LOGO_PATH = BASE_DIR / "logo.png"
 PERSON_PHOTO_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif")
+KNOWN_KR_HOLIDAYS = {
+    2024: {
+        "2024-01-01", "2024-02-09", "2024-02-10", "2024-02-11", "2024-02-12",
+        "2024-03-01", "2024-04-10", "2024-05-05", "2024-05-06", "2024-05-15",
+        "2024-06-06", "2024-08-15", "2024-09-16", "2024-09-17", "2024-09-18",
+        "2024-10-03", "2024-10-09", "2024-12-25",
+    },
+    2025: {
+        "2025-01-01", "2025-01-28", "2025-01-29", "2025-01-30",
+        "2025-03-01", "2025-03-03", "2025-05-01", "2025-05-05", "2025-05-06",
+        "2025-06-03", "2025-06-06", "2025-08-15",
+        "2025-10-03", "2025-10-05", "2025-10-06", "2025-10-07", "2025-10-08",
+        "2025-10-09", "2025-12-25",
+    },
+    2026: {
+        "2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18",
+        "2026-03-01", "2026-03-02", "2026-05-01", "2026-05-05",
+        "2026-05-24", "2026-05-25", "2026-06-03", "2026-06-06",
+        "2026-08-15", "2026-08-17", "2026-09-24", "2026-09-25", "2026-09-26",
+        "2026-10-03", "2026-10-05", "2026-10-09", "2026-12-25",
+    },
+    2027: {
+        "2027-01-01", "2027-02-06", "2027-02-07", "2027-02-08", "2027-02-09",
+        "2027-03-01", "2027-05-01", "2027-05-05", "2027-05-13",
+        "2027-06-06", "2027-08-15", "2027-09-21", "2027-09-22", "2027-09-23",
+        "2027-10-03", "2027-10-04", "2027-10-09", "2027-10-11",
+        "2027-12-25", "2027-12-27",
+    },
+    2028: {
+        "2028-01-01", "2028-01-25", "2028-01-26", "2028-01-27",
+        "2028-03-01", "2028-05-01", "2028-05-02", "2028-05-05",
+        "2028-06-06", "2028-08-15", "2028-10-02", "2028-10-03", "2028-10-04",
+        "2028-10-09", "2028-12-25",
+    },
+    2029: {
+        "2029-01-01", "2029-02-12", "2029-02-13", "2029-02-14",
+        "2029-03-01", "2029-05-01", "2029-05-05", "2029-05-07",
+        "2029-05-20", "2029-05-21", "2029-06-06", "2029-08-15",
+        "2029-09-21", "2029-09-22", "2029-09-23", "2029-09-24",
+        "2029-10-03", "2029-10-09", "2029-12-25",
+    },
+    2030: {
+        "2030-01-01", "2030-02-02", "2030-02-03", "2030-02-04", "2030-02-05",
+        "2030-03-01", "2030-05-01", "2030-05-05", "2030-05-06", "2030-05-09",
+        "2030-06-06", "2030-08-15", "2030-09-11", "2030-09-12", "2030-09-13",
+        "2030-10-03", "2030-10-09", "2030-12-25",
+    },
+}
 
 DEFAULT_CONFIG = {
     "workbook_path": "",
-    "nas_sync_dir": "",
-    "nas_base_url": "",
     "netlify_site_url": "",
-    "webdav_url": "",
-    "webdav_username": "",
-    "webdav_password": "",
     "company_name": "품질팀",
     "scan_prefix": "TOOL:",
 }
@@ -125,6 +165,114 @@ def normalize_text(value):
     if value is None:
         return ""
     return str(value).strip()
+
+
+def add_months(date_value, months):
+    year = date_value.year + (date_value.month - 1 + months) // 12
+    month = (date_value.month - 1 + months) % 12 + 1
+    day = min(date_value.day, calendar.monthrange(year, month)[1])
+    return date_value.replace(year=year, month=month, day=day)
+
+
+def cycle_interval_months(cycle_text):
+    text = normalize_text(cycle_text)
+    if not text:
+        return 12
+    digits = "".join(char for char in text if char.isdigit())
+    count = int(digits) if digits else 1
+    if "월" in text:
+        return max(count, 1)
+    if "분기" in text or "Q" in text.upper():
+        return max(count * 3, 1)
+    if "반기" in text:
+        return 6
+    if "년" in text or "연" in text:
+        if "회" in text:
+            return max(12 // max(count, 1), 1)
+        return max(count * 12, 1)
+    return 12
+
+
+def parse_date_text(date_text):
+    try:
+        return datetime.strptime(normalize_text(date_text), "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def manual_holiday_dates(year):
+    ensure_dirs()
+    dates = set()
+    for path in (DATA_DIR / "holidays.txt", DATA_DIR / f"holidays_{year}.txt"):
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            holiday_date = parse_date_text(line.split("#", 1)[0].strip())
+            if holiday_date and holiday_date.year == year:
+                dates.add(holiday_date)
+    return dates
+
+
+def korean_holiday_dates(year):
+    try:
+        holiday_module = __import__("holidays")
+        return {date_value for date_value in holiday_module.country_holidays("KR", years=[year])} | manual_holiday_dates(year)
+    except Exception:
+        fixed_holidays = {
+            (1, 1),
+            (3, 1),
+            (5, 5),
+            (6, 6),
+            (8, 15),
+            (10, 3),
+            (10, 9),
+            (12, 25),
+        }
+        return {
+            datetime(year, month, day).date()
+            for month, day in fixed_holidays
+        } | {
+            holiday_date
+            for holiday_date in (parse_date_text(date_text) for date_text in KNOWN_KR_HOLIDAYS.get(year, set()))
+            if holiday_date is not None
+        } | manual_holiday_dates(year)
+
+
+def is_workday(date_value):
+    return date_value.weekday() < 5 and date_value not in korean_holiday_dates(date_value.year)
+
+
+def preferred_week_workday(due_date):
+    week_monday = due_date - timedelta(days=due_date.weekday())
+    candidates = [
+        week_monday + timedelta(days=2),
+        week_monday + timedelta(days=3),
+        week_monday + timedelta(days=1),
+        week_monday + timedelta(days=4),
+        week_monday,
+    ]
+    for candidate in candidates:
+        if is_workday(candidate):
+            return candidate
+    candidate = week_monday + timedelta(days=7)
+    while not is_workday(candidate):
+        candidate += timedelta(days=1)
+    return candidate
+
+
+def inspection_due_date(row):
+    return parse_date_text(row.get("due_date")) or parse_date_text(row.get("inspection_date"))
+
+
+def next_inspection_date(tool, inspections):
+    interval_months = cycle_interval_months(tool.get("cycle"))
+    dates = [inspection_due_date(item) for item in inspections]
+    dates = [date_value for date_value in dates if date_value is not None]
+    if dates:
+        due_date = add_months(max(dates), interval_months)
+    else:
+        due_date = datetime.now().date()
+    return preferred_week_workday(due_date).strftime("%Y-%m-%d")
 
 
 def remove_light_edge_background(image):
@@ -176,16 +324,6 @@ def remove_light_edge_background(image):
             stack.append((x, y + 1))
 
     return image
-
-
-def normalize_network_path(value):
-    path_text = normalize_text(value)
-    if not path_text:
-        return ""
-    path_text = path_text.replace("₩", "\\")
-    if path_text.startswith("//"):
-        return "\\\\" + path_text[2:].replace("/", "\\")
-    return path_text
 
 
 def load_db():
@@ -459,12 +597,114 @@ def delete_inspection_record(inspection_id):
 
 def list_inspections(management_no):
     rows = [row for row in load_db()["inspections"] if row["management_no"] == management_no]
-    rows.sort(key=lambda item: (normalize_text(item.get("inspection_date")) or normalize_text(item.get("created_at")), item.get("id", 0)))
+    rows.sort(
+        key=lambda item: (
+            normalize_text(item.get("inspection_date")) or normalize_text(item.get("created_at")),
+            int(item.get("id", 0)),
+        ),
+        reverse=True,
+    )
     return rows
 
 
+def generate_due_inspection_records(management_no, through_date=None):
+    management_no = normalize_text(management_no)
+    tool = get_tool(management_no)
+    if not tool:
+        return 0
+    through_date = through_date or datetime.now().date()
+    interval_months = cycle_interval_months(tool.get("cycle"))
+    data = load_db()
+    rows = [row for row in data["inspections"] if row["management_no"] == management_no]
+    dated_rows = [
+        (inspection_due_date(row), row)
+        for row in rows
+    ]
+    dated_rows = [(date_value, row) for date_value, row in dated_rows if date_value is not None]
+    if not dated_rows:
+        return 0
+    dated_rows.sort(key=lambda item: (item[0], int(item[1].get("id", 0))))
+    base_date, base_row = dated_rows[-1]
+    existing_due_dates = {date_value for date_value, _row in dated_rows}
+    existing_inspection_dates = {
+        parse_date_text(row.get("inspection_date"))
+        for row in rows
+        if parse_date_text(row.get("inspection_date")) is not None
+    }
+    next_id = max([int(row.get("id", 0)) for row in data["inspections"]] or [0]) + 1
+    created = 0
+    due_date = add_months(base_date, interval_months)
+    while due_date <= through_date:
+        inspection_date = preferred_week_workday(due_date)
+        if due_date not in existing_due_dates and inspection_date not in existing_inspection_dates:
+            generated = {
+                "id": next_id,
+                "management_no": management_no,
+                "inspection_date": inspection_date.strftime("%Y-%m-%d"),
+                "due_date": due_date.strftime("%Y-%m-%d"),
+                "master_sample_match": normalize_text(base_row.get("master_sample_match")) or "양호",
+                "storage_status": normalize_text(base_row.get("storage_status")) or normalize_text(base_row.get("usage_flag")) or "양호",
+                "cleaning_status": normalize_text(base_row.get("cleaning_status")) or "양호",
+                "wear_status": normalize_text(base_row.get("wear_status")) or "양호",
+                "fit_status": normalize_text(base_row.get("fit_status")) or "양호",
+                "result_text": normalize_text(base_row.get("result_text")) or "합격",
+                "usage_flag": normalize_text(base_row.get("usage_flag")) or normalize_text(base_row.get("storage_status")) or "양호",
+                "author": normalize_text(base_row.get("author")) or normalize_text(base_row.get("reviewer")),
+                "reviewer": normalize_text(base_row.get("reviewer")) or normalize_text(base_row.get("author")),
+                "approver": normalize_text(base_row.get("approver")),
+                "memo": normalize_text(base_row.get("memo")),
+                "created_at": now_text(),
+                "auto_generated": "Y",
+            }
+            data["inspections"].append(generated)
+            existing_due_dates.add(due_date)
+            existing_inspection_dates.add(inspection_date)
+            base_row = generated
+            next_id += 1
+            created += 1
+        base_date = due_date
+        due_date = add_months(base_date, interval_months)
+    if created:
+        save_db(data)
+    return created
+
+
+def reschedule_auto_generated_inspections(management_no):
+    management_no = normalize_text(management_no)
+    data = load_db()
+    changed = 0
+    occupied_dates = {
+        parse_date_text(row.get("inspection_date"))
+        for row in data["inspections"]
+        if row["management_no"] == management_no and parse_date_text(row.get("inspection_date")) is not None
+    }
+    for row in data["inspections"]:
+        if row["management_no"] != management_no or normalize_text(row.get("auto_generated")) != "Y":
+            continue
+        due_date = inspection_due_date(row)
+        if due_date is None:
+            continue
+        scheduled_date = preferred_week_workday(due_date)
+        current_date = parse_date_text(row.get("inspection_date"))
+        if current_date == scheduled_date:
+            row["due_date"] = due_date.strftime("%Y-%m-%d")
+            continue
+        if scheduled_date in occupied_dates and scheduled_date != current_date:
+            continue
+        if current_date in occupied_dates:
+            occupied_dates.remove(current_date)
+        occupied_dates.add(scheduled_date)
+        row["inspection_date"] = scheduled_date.strftime("%Y-%m-%d")
+        row["due_date"] = due_date.strftime("%Y-%m-%d")
+        row["updated_at"] = now_text()
+        changed += 1
+    if changed:
+        save_db(data)
+    return changed
+
+
 def public_base_url(config):
-    return normalize_text(config.get("netlify_site_url")) or normalize_text(config.get("nas_base_url"))
+    return normalize_text(config.get("netlify_site_url"))
 
 
 def qr_payload_for_tool(tool, config):
@@ -476,11 +716,6 @@ def qr_payload_for_tool(tool, config):
             return f"{base_url}/{management_no}.html"
         return f"{base_url}/cards/{management_no}.html"
     return f"{normalize_text(config.get('scan_prefix'))}{management_no}"
-
-
-def is_quickconnect_url(url_text):
-    lowered = normalize_text(url_text).lower()
-    return "quickconnect.to/" in lowered or "quickconnect." in lowered
 
 
 def render_qr_image(data, output_path):
@@ -545,89 +780,6 @@ def person_profile_html(person_name):
         '<div class="lead-note">최근 점검 담당자</div>'
         '</aside>'
     )
-
-
-def sync_people_photos_to_nas(nas_web_root):
-    people_files = [path for path in PEOPLE_DIR.iterdir() if path.is_file()]
-    if not people_files:
-        return
-    nas_people_dir = nas_web_root / "people"
-    nas_people_dir.mkdir(parents=True, exist_ok=True)
-    for source in people_files:
-        shutil.copy2(source, nas_people_dir / source.name)
-
-
-def webdav_is_configured(config):
-    return bool(normalize_text(config.get("webdav_url")))
-
-
-def webdav_credentials(config):
-    username = normalize_text(config.get("webdav_username"))
-    password = normalize_text(config.get("webdav_password"))
-    if not username or not password:
-        raise ValueError("WebDAV 계정과 비밀번호를 설정해 주세요.")
-    return username, password
-
-
-def webdav_file_url(config, *parts):
-    base_url = normalize_text(config.get("webdav_url")).rstrip("/")
-    encoded_parts = [quote(str(part).strip("/")) for part in parts if str(part).strip("/")]
-    if encoded_parts:
-        return base_url + "/" + "/".join(encoded_parts)
-    return base_url
-
-
-def webdav_request(config, method, url, data=None, content_type="application/octet-stream"):
-    username, password = webdav_credentials(config)
-    token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
-    headers = {"Authorization": f"Basic {token}"}
-    if data is not None:
-        headers["Content-Type"] = content_type
-    request = Request(url, data=data, headers=headers, method=method)
-    try:
-        with urlopen(request, timeout=30) as response:
-            return response.status
-    except HTTPError as exc:
-        return exc.code
-    except URLError as exc:
-        raise ValueError(f"WebDAV 연결 실패: {exc}") from exc
-
-
-def ensure_webdav_dirs(config):
-    for dirname in ("cards", "qrcode", "people"):
-        status = webdav_request(config, "MKCOL", webdav_file_url(config, dirname))
-        if status not in (200, 201, 204, 405):
-            raise ValueError(f"WebDAV 폴더 생성 실패: {dirname} (HTTP {status})")
-
-
-def upload_file_to_webdav(config, source_path, *remote_parts):
-    if not source_path.exists():
-        return
-    suffix = source_path.suffix.lower()
-    content_type = "text/html; charset=utf-8" if suffix == ".html" else "image/png" if suffix == ".png" else "application/octet-stream"
-    status = webdav_request(config, "PUT", webdav_file_url(config, *remote_parts), source_path.read_bytes(), content_type)
-    if status not in (200, 201, 204):
-        raise ValueError(f"WebDAV 업로드 실패: {source_path.name} (HTTP {status})")
-
-
-def sync_people_photos_to_webdav(config):
-    if not PEOPLE_DIR.exists():
-        return
-    for source in PEOPLE_DIR.iterdir():
-        if source.is_file():
-            upload_file_to_webdav(config, source, "people", source.name)
-
-
-def upload_tool_assets_to_webdav(config, management_no):
-    ensure_webdav_dirs(config)
-    upload_file_to_webdav(config, QR_DIR / f"{management_no}.png", "qrcode", f"{management_no}.png")
-    upload_file_to_webdav(config, CARD_DIR / f"{management_no}.html", "cards", f"{management_no}.html")
-    sync_people_photos_to_webdav(config)
-
-
-def upload_index_to_webdav(config, index_path):
-    ensure_webdav_dirs(config)
-    upload_file_to_webdav(config, index_path, "index.html")
 
 
 def build_index_html(tools, config):
@@ -695,75 +847,7 @@ def export_index_page(config):
     index_html = build_index_html(list_tools(), config)
     index_path = EXPORT_DIR / "index.html"
     index_path.write_text(index_html, encoding="utf-8")
-    nas_sync_dir = normalize_text(config.get("nas_sync_dir"))
-    if nas_sync_dir:
-        nas_paths = validate_nas_sync_dir(nas_sync_dir)
-        try:
-            (nas_paths["web_root"] / "index.html").write_text(index_html, encoding="utf-8")
-        except PermissionError:
-            (nas_paths["cards_dir"] / "index.html").write_text(index_html, encoding="utf-8")
-    if webdav_is_configured(config):
-        upload_index_to_webdav(config, index_path)
     return index_path
-
-
-def resolve_nas_export_paths(nas_sync_dir):
-    nas_root = Path(normalize_network_path(nas_sync_dir))
-    if not nas_root:
-        raise ValueError("NAS 동기화 폴더가 비어 있습니다.")
-    if nas_root.name.lower() == "cards":
-        web_root = nas_root.parent
-        cards_dir = nas_root
-    else:
-        web_root = nas_root
-        cards_dir = nas_root / "cards"
-    return {
-        "web_root": web_root,
-        "cards_dir": cards_dir,
-        "qrcode_dir": web_root / "qrcode",
-    }
-
-
-def ensure_nas_dirs(nas_sync_dir):
-    paths = resolve_nas_export_paths(nas_sync_dir)
-    for key in ("qrcode_dir", "cards_dir"):
-        try:
-            paths[key].mkdir(parents=True, exist_ok=True)
-        except PermissionError:
-            # Existing NAS folders can raise PermissionError on mkdir over SMB.
-            # The later write test gives a clearer answer about actual access.
-            pass
-    return paths
-
-
-def validate_nas_sync_dir(nas_sync_dir):
-    try:
-        paths = ensure_nas_dirs(nas_sync_dir)
-        for key in ("cards_dir", "qrcode_dir"):
-            probe_path = paths[key] / ".write_test.tmp"
-            probe_path.write_text("ok", encoding="utf-8")
-            probe_path.unlink(missing_ok=True)
-        return paths
-    except PermissionError as exc:
-        raise ValueError(
-            "NAS Web Station 폴더에 쓸 권한이 없습니다.\n"
-            f"경로: {normalize_network_path(nas_sync_dir)}\n\n"
-            "Windows 파일 탐색기에서 이 경로를 먼저 열어 NAS 계정으로 로그인하고, "
-            "DSM에서 web 공유 폴더 쓰기 권한을 허용해 주세요."
-        ) from exc
-    except FileNotFoundError as exc:
-        raise ValueError(
-            "NAS Web Station 폴더 경로를 찾을 수 없습니다.\n"
-            f"경로: {normalize_network_path(nas_sync_dir)}\n\n"
-            "NAS IP와 공유 폴더 이름이 맞는지 확인해 주세요. 예: \\\\192.168.0.2\\web"
-        ) from exc
-    except OSError as exc:
-        raise ValueError(
-            "NAS Web Station 폴더에 연결할 수 없습니다.\n"
-            f"경로: {normalize_network_path(nas_sync_dir)}\n"
-            f"Windows 오류: {exc}\n\n"
-            "파일 탐색기에서 \\\\192.168.0.2\\web 을 먼저 열어 접속되는지 확인해 주세요."
-        ) from exc
 
 
 def build_tool_html(tool, inspections, qr_payload):
@@ -929,11 +1013,9 @@ def build_tool_html_safe(tool, inspections, qr_payload):
         lead_photo_html = f'<img class="lead-photo" src="{lead_photo_src}" alt="{escape(lead_person)}">'
     else:
         lead_photo_html = '<div class="lead-photo lead-photo-empty">사진</div>'
-    qr_img_src = "../qrcode/" + quote(f"{tool['management_no']}.png")
     for index, item in enumerate(inspections, start=1):
-        reviewer_html = escape(normalize_text(item.get("reviewer")) or normalize_text(item.get("author")))
-        approver_html = escape(normalize_text(item.get("approver")))
-        approval_html = " / ".join(part for part in [reviewer_html, approver_html] if part) or "-"
+        reviewer_name = normalize_text(item.get("reviewer")) or normalize_text(item.get("author"))
+        approver_name = normalize_text(item.get("approver"))
         rows.append(
             f"""
             <tr>
@@ -944,8 +1026,8 @@ def build_tool_html_safe(tool, inspections, qr_payload):
               <td>{escape(normalize_text(item.get('wear_status'))) or "-"}</td>
               <td>{escape(normalize_text(item.get('fit_status'))) or "-"}</td>
               <td>{escape(normalize_text(item['result_text'])) or "-"}</td>
-              <td>{approval_html}</td>
-              <td>{escape(normalize_text(item['memo'])) or "-"}</td>
+              <td>{escape(reviewer_name) or "-"}</td>
+              <td>{escape(approver_name) or "-"}</td>
             </tr>
             """
         )
@@ -974,15 +1056,13 @@ def build_tool_html_safe(tool, inspections, qr_payload):
     body {{ margin:0; font-family:"Malgun Gothic", Arial, sans-serif; background:#f5f7fb; color:var(--text); }}
     .wrap {{ max-width:1120px; margin:0 auto; padding:12px 18px; }}
     .sheet {{ position:relative; background:var(--panel); border:1px solid #d8dee8; border-radius:6px; padding:24px 34px 24px; box-shadow:0 8px 18px rgba(17,24,39,.06); }}
-    .card-header {{ min-height:58px; padding-right:86px; margin-bottom:10px; }}
+    .card-header {{ min-height:58px; margin-bottom:10px; }}
     .title {{ font-size:26px; font-weight:800; margin:0; letter-spacing:0; line-height:1.25; }}
     .sub {{ color:var(--muted); margin:0 0 18px; }}
     .top-grid {{ display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:stretch; margin:10px 0 22px 0; }}
     .photo-card {{ background:#fff; border:1px solid #cfd8e6; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:222px; padding:5%; }}
-    .qr-card {{ position:absolute; top:18px; right:34px; width:56px; height:56px; display:flex; align-items:center; justify-content:center; }}
     .lead-photo {{ width:100%; height:100%; object-fit:contain; display:block; }}
     .lead-photo-empty {{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:20px; }}
-    .qr-image {{ width:100%; height:100%; object-fit:contain; display:block; }}
     .info-table {{ width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #cfd8e6; }}
     .info-table th,.info-table td {{ border-bottom:1px solid #cfd8e6; border-right:1px solid #cfd8e6; padding:9px 10px; text-align:center; vertical-align:middle; }}
     .info-table tr:last-child th,.info-table tr:last-child td {{ border-bottom:0; }}
@@ -991,7 +1071,7 @@ def build_tool_html_safe(tool, inspections, qr_payload):
     .info-table td {{ width:20%; font-size:15px; font-weight:700; word-break:break-word; }}
     .section-title {{ background:#f1f3f5; border:1px solid #cfd8e6; border-bottom:0; font-size:18px; font-weight:800; margin:22px 0 0; padding:8px; text-align:center; }}
     .table-card {{ overflow:auto; }}
-    .history-table {{ width:100%; border-collapse:collapse; min-width:980px; border:1px solid #cfd8e6; }}
+    .history-table {{ width:100%; border-collapse:collapse; min-width:920px; border:1px solid #cfd8e6; table-layout:fixed; }}
     .history-table th,.history-table td {{ border:1px solid #cfd8e6; padding:7px 6px; text-align:center; vertical-align:middle; }}
     .history-table th {{ background:#f1f3f5; font-size:15px; font-weight:800; line-height:1.3; }}
     .history-table td {{ font-size:13px; height:36px; }}
@@ -1000,8 +1080,7 @@ def build_tool_html_safe(tool, inspections, qr_payload):
       .sheet {{ padding:18px 14px; }}
       .top-grid {{ grid-template-columns:1fr; margin-right:0; }}
       .photo-card {{ width:140px; min-height:150px; }}
-      .card-header {{ min-height:54px; padding-right:78px; }}
-      .qr-card {{ width:62px; height:62px; right:14px; top:18px; }}
+      .card-header {{ min-height:54px; }}
       .info-table th,.info-table td {{ padding:8px 6px; font-size:13px; }}
       .info-table th {{ letter-spacing:0; }}
       .history-table th {{ font-size:14px; }}
@@ -1051,27 +1130,37 @@ def build_tool_html_safe(tool, inspections, qr_payload):
         </tbody>
       </table>
       </div>
-      <div class="qr-card"><img class="qr-image" src="{qr_img_src}" alt="QR"></div>
       <div class="section-title">점검 결과</div>
       <div class="table-card">
       <table class="history-table">
+        <colgroup>
+          <col style="width:9%">
+          <col style="width:14%">
+          <col style="width:12%">
+          <col style="width:12%">
+          <col style="width:13%">
+          <col style="width:13%">
+          <col style="width:9%">
+          <col style="width:9%">
+          <col style="width:9%">
+        </colgroup>
         <thead>
           <tr>
             <th rowspan="2">점검일</th>
-            <th rowspan="2">MASTER<br>SAMPLE<br>매칭상태</th>
-            <th>보관상태</th>
+            <th rowspan="2">MASTER<br>SAMPLE<br>매칭 상태</th>
+            <th>보관 상태</th>
             <th>청결 상태</th>
             <th>제품 매칭면</th>
-            <th>제품안착시</th>
+            <th>제품 안착시</th>
             <th rowspan="2">판정</th>
-            <th rowspan="2">결재</th>
-            <th rowspan="2">비고</th>
+            <th rowspan="2">담당</th>
+            <th rowspan="2">승인</th>
           </tr>
           <tr>
             <th>보관 여부</th>
-            <th>청소여부</th>
-            <th>마모상태</th>
-            <th>유격상태</th>
+            <th>청소 여부</th>
+            <th>마모 상태</th>
+            <th>유격 상태</th>
           </tr>
         </thead>
         <tbody>{history_html}</tbody>
@@ -1084,7 +1173,7 @@ def build_tool_html_safe(tool, inspections, qr_payload):
 """
 
 
-def export_tool_assets(management_no, config, update_index=True, upload_webdav=True):
+def export_tool_assets(management_no, config, update_index=True):
     tool = get_tool(management_no)
     if not tool:
         raise ValueError("관리번호를 찾을 수 없습니다.")
@@ -1095,14 +1184,6 @@ def export_tool_assets(management_no, config, update_index=True, upload_webdav=T
     render_qr_image(qr_payload, qr_path)
     card_path.write_text(build_tool_html_safe(tool, inspections, qr_payload), encoding="utf-8")
 
-    nas_sync_dir = normalize_text(config.get("nas_sync_dir"))
-    if nas_sync_dir:
-        nas_paths = validate_nas_sync_dir(nas_sync_dir)
-        sync_people_photos_to_nas(nas_paths["web_root"])
-        render_qr_image(qr_payload, nas_paths["qrcode_dir"] / f"{management_no}.png")
-        (nas_paths["cards_dir"] / f"{management_no}.html").write_text(build_tool_html_safe(tool, inspections, qr_payload), encoding="utf-8")
-    if upload_webdav and webdav_is_configured(config):
-        upload_tool_assets_to_webdav(config, management_no)
     if update_index:
         export_index_page(config)
     return qr_path, card_path, qr_payload
@@ -1545,15 +1626,15 @@ class ToolInspectionApp:
         history_wrap = tk.Frame(self.history_panel, bg=UI["panel"])
         history_wrap.pack(fill="both", expand=True, padx=PANEL_PAD, pady=(0, 8))
         self.history_column_specs = [
-            ("inspection_date", "점검일", 90),
-            ("master_sample_match", "MASTER\nSAMPLE\n매칭상태", 118),
-            ("storage_status", "보관 여부", 104),
-            ("cleaning_status", "청소여부", 104),
-            ("wear_status", "마모상태", 116),
-            ("fit_status", "유격상태", 116),
-            ("result_text", "판정", 84),
-            ("approval", "결재", 84),
-            ("memo", "비고", 96),
+            ("inspection_date", "점검일", 88),
+            ("master_sample_match", "MASTER SAMPLE\n매칭 상태", 126),
+            ("storage_status", "보관 여부", 100),
+            ("cleaning_status", "청소 여부", 100),
+            ("wear_status", "마모 상태", 112),
+            ("fit_status", "유격 상태", 112),
+            ("result_text", "판정", 78),
+            ("reviewer", "담당", 80),
+            ("approver", "승인", 80),
         ]
         self.build_history_header(history_wrap)
         self.history_tree = ttk.Treeview(
@@ -1596,18 +1677,18 @@ class ToolInspectionApp:
             x += width
 
         draw_cell(x_positions[0], 0, widths[0], header_height, "점검일")
-        draw_cell(x_positions[1], 0, widths[1], header_height, "MASTER\nSAMPLE\n매칭상태")
-        draw_cell(x_positions[2], 0, widths[2], 32, "보관상태")
+        draw_cell(x_positions[1], 0, widths[1], header_height, "MASTER\nSAMPLE\n매칭 상태")
+        draw_cell(x_positions[2], 0, widths[2], 32, "보관 상태")
         draw_cell(x_positions[3], 0, widths[3], 32, "청결 상태")
         draw_cell(x_positions[4], 0, widths[4], 32, "제품 매칭면")
-        draw_cell(x_positions[5], 0, widths[5], 32, "제품안착시")
+        draw_cell(x_positions[5], 0, widths[5], 32, "제품 안착시")
         draw_cell(x_positions[6], 0, widths[6], header_height, "판정")
-        draw_cell(x_positions[7], 0, widths[7], header_height, "결재")
-        draw_cell(x_positions[8], 0, widths[8], header_height, "비고")
+        draw_cell(x_positions[7], 0, widths[7], header_height, "담당")
+        draw_cell(x_positions[8], 0, widths[8], header_height, "승인")
         draw_cell(x_positions[2], 32, widths[2], 32, "보관 여부")
-        draw_cell(x_positions[3], 32, widths[3], 32, "청소여부")
-        draw_cell(x_positions[4], 32, widths[4], 32, "마모상태")
-        draw_cell(x_positions[5], 32, widths[5], 32, "유격상태")
+        draw_cell(x_positions[3], 32, widths[3], 32, "청소 여부")
+        draw_cell(x_positions[4], 32, widths[4], 32, "마모 상태")
+        draw_cell(x_positions[5], 32, widths[5], 32, "유격 상태")
 
     def open_inspection_dialog(self, inspection=None):
         if not self.selected_management_no:
@@ -1633,6 +1714,7 @@ class ToolInspectionApp:
             self.load_inspection_form(inspection)
         else:
             self.reset_inspection_form()
+            self.apply_cycle_inspection_defaults(show_status=False)
         self.inspection_dialog.grab_set()
 
     def close_inspection_dialog(self):
@@ -1649,6 +1731,7 @@ class ToolInspectionApp:
         top_btn_row.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         save_text = "수정 저장" if self.editing_inspection_id else "이력 저장"
         self.make_button(top_btn_row, save_text, self.save_inspection, "primary", padx=14).pack(side="left")
+        self.make_button(top_btn_row, "주기 자동입력", self.apply_cycle_inspection_defaults, "secondary", padx=12).pack(side="left", padx=(8, 0))
         self.make_button(top_btn_row, "초기화", self.reset_inspection_form, "secondary", padx=12).pack(side="left", padx=(8, 0))
 
         person_btn_row = tk.Frame(top_btn_row, bg=UI["panel"])
@@ -1666,9 +1749,9 @@ class ToolInspectionApp:
             ("inspection_date", "점검일자", 0, 0),
             ("master_sample_match", "MASTER SAMPLE", 0, 2),
             ("storage_status", "보관 여부", 1, 0),
-            ("cleaning_status", "청소여부", 1, 2),
-            ("wear_status", "마모상태", 2, 0),
-            ("fit_status", "유격상태", 2, 2),
+            ("cleaning_status", "청소 여부", 1, 2),
+            ("wear_status", "마모 상태", 2, 0),
+            ("fit_status", "유격 상태", 2, 2),
             ("result_text", "판정", 3, 0),
             ("reviewer", "담당", 3, 2),
             ("approver", "승인", 3, 4),
@@ -2002,7 +2085,6 @@ class ToolInspectionApp:
         for index, row in enumerate(list_inspections(management_no), start=1):
             reviewer = normalize_text(row.get("reviewer")) or normalize_text(row.get("author"))
             approver = normalize_text(row.get("approver"))
-            approval = " / ".join(part for part in [reviewer, approver] if part)
             self.history_tree.insert(
                 "",
                 "end",
@@ -2015,8 +2097,8 @@ class ToolInspectionApp:
                     normalize_text(row.get("wear_status")),
                     normalize_text(row.get("fit_status")),
                     normalize_text(row.get("result_text")),
-                    approval,
-                    normalize_text(row.get("memo")),
+                    reviewer,
+                    approver,
                 ),
             )
 
@@ -2077,6 +2159,12 @@ class ToolInspectionApp:
             else:
                 add_inspection_record(payload)
                 status_text = f"{self.selected_management_no} 점검 이력을 저장했습니다."
+            generated_count = generate_due_inspection_records(self.selected_management_no)
+            rescheduled_count = reschedule_auto_generated_inspections(self.selected_management_no)
+            if generated_count:
+                status_text += f" 누락된 주기 이력 {generated_count}건을 자동 생성했습니다."
+            if rescheduled_count:
+                status_text += f" 주말/공휴일 이력 {rescheduled_count}건을 평일로 조정했습니다."
             self.refresh_history(self.selected_management_no)
             self.refresh_qr_preview(self.selected_management_no)
             self.reset_inspection_form()
@@ -2110,6 +2198,32 @@ class ToolInspectionApp:
         self.inspection_vars["approver"].set("")
         if self.inspection_memo is not None and self.inspection_memo.winfo_exists():
             self.inspection_memo.delete("1.0", "end")
+
+    def apply_cycle_inspection_defaults(self, show_status=True):
+        if not self.selected_management_no:
+            return
+        tool = get_tool(self.selected_management_no)
+        if not tool:
+            return
+        inspections = list_inspections(self.selected_management_no)
+        if self.editing_inspection_id:
+            inspections = [
+                item for item in inspections
+                if int(item.get("id", 0)) != int(self.editing_inspection_id)
+            ]
+        due_date = next_inspection_date(tool, inspections)
+        self.inspection_vars["inspection_date"].set(due_date)
+        for key in ("master_sample_match", "storage_status", "cleaning_status", "wear_status", "fit_status"):
+            if not normalize_text(self.inspection_vars[key].get()):
+                self.inspection_vars[key].set("양호")
+        if not normalize_text(self.inspection_vars["result_text"].get()):
+            self.inspection_vars["result_text"].set("합격")
+        if not normalize_text(self.inspection_vars["reviewer"].get()):
+            self.inspection_vars["reviewer"].set(normalize_text(self.config.get("company_name", "품질팀")))
+        self.inspection_vars["usage_flag"].set(self.inspection_vars["storage_status"].get())
+        if show_status:
+            cycle = normalize_text(tool.get("cycle")) or "기본 1년"
+            self.status_var.set(f"{self.selected_management_no} 점검주기({cycle}) 기준으로 {due_date} 이력을 자동 입력했습니다.")
 
     def open_person_photo_folder(self):
         ensure_dirs()
@@ -2166,36 +2280,6 @@ class ToolInspectionApp:
         if hasattr(self, "qr_path_var"):
             self.qr_path_var.set("")
         self.status_var.set("새 검사구 입력 모드")
-
-    def _delete_selected_tool_legacy(self):
-        selected_management_numbers = list(self.tool_tree.selection())
-        if not selected_management_numbers and self.selected_management_no:
-            selected_management_numbers = [self.selected_management_no]
-        if not selected_management_numbers:
-            messagebox.showwarning("검사구 선택", "삭제할 검사구를 먼저 선택하세요.")
-            return
-        selected_count = len(selected_management_numbers)
-        if selected_count == 1:
-            confirm_message = f"{selected_management_numbers[0]} 검사구와 연결된 점검 이력을 모두 삭제할까요?"
-        else:
-            preview = ", ".join(selected_management_numbers[:5])
-            if selected_count > 5:
-                preview += f" 외 {selected_count - 5}건"
-            confirm_message = f"선택한 검사구 {selected_count}건을 삭제할까요?\n\n{preview}\n\n연결된 점검 이력도 모두 삭제됩니다."
-        answer = messagebox.askyesno(
-            "검사구 삭제",
-            f"{self.selected_management_no} 검사구와 연결된 점검 이력을 모두 삭제할까요?",
-        )
-        if not answer:
-            return
-        try:
-            deleted_count = delete_tool_records(selected_management_numbers)
-            self.prepare_new_tool()
-            self.search_var.set("")
-            self.refresh_tool_list()
-            self.status_var.set("검사구를 삭제했습니다.")
-        except Exception as exc:
-            messagebox.showerror("삭제 실패", str(exc))
 
     def delete_selected_tool(self):
         selected_management_numbers = list(self.tool_tree.selection())
@@ -2295,20 +2379,20 @@ class ToolInspectionApp:
             export_tool_assets(row["management_no"], self.config, update_index=False)
             success += 1
         export_index_page(self.config)
-        self.status_var.set(f"전체 QR/HTML 갱신 완료: {success}건")
+        self.status_var.set(f"전체 QR/HTML 갱신 완료: {success}건 - GitHub에 push하면 Netlify에 반영됩니다.")
         if self.selected_management_no:
             self.refresh_qr_preview(self.selected_management_no)
-        messagebox.showinfo("전체 생성 완료", f"{success}건의 QR/HTML 카드를 갱신했습니다.")
+        messagebox.showinfo("전체 생성 완료", f"{success}건의 QR/HTML 카드를 갱신했습니다.\nGitHub에 push하면 Netlify에 자동 배포됩니다.")
 
     def open_selected_card(self):
         if not self.selected_management_no:
             messagebox.showwarning("검사구 선택", "열 검사구를 먼저 선택하세요.")
             return
         try:
-            _qr_path, card_path, payload = export_tool_assets(self.selected_management_no, self.config, upload_webdav=False)
+            _qr_path, card_path, payload = export_tool_assets(self.selected_management_no, self.config)
             if payload.lower().startswith(("http://", "https://")):
                 webbrowser.open(payload)
-                self.status_var.set(f"웹 카드 열기: {payload}")
+                self.status_var.set(f"Netlify 카드 열기: {payload}")
             else:
                 webbrowser.open(card_path.resolve().as_uri())
                 self.status_var.set(f"로컬 카드 열기: {card_path}")
@@ -2337,70 +2421,6 @@ class ToolInspectionApp:
             self.tool_tree.see(management_no)
         self.load_tool(management_no)
         self.scan_var.set("")
-
-    def open_settings(self):
-        win = tk.Toplevel(self.root)
-        win.title("설정")
-        win.geometry("820x470")
-        win.configure(bg=UI["panel"])
-        vars_map = {
-            "workbook_path": tk.StringVar(value=self.config.get("workbook_path", "")),
-            "nas_sync_dir": tk.StringVar(value=self.config.get("nas_sync_dir", "")),
-            "nas_base_url": tk.StringVar(value=self.config.get("nas_base_url", "")),
-            "netlify_site_url": tk.StringVar(value=self.config.get("netlify_site_url", "")),
-            "webdav_url": tk.StringVar(value=self.config.get("webdav_url", "")),
-            "webdav_username": tk.StringVar(value=self.config.get("webdav_username", "")),
-            "webdav_password": tk.StringVar(value=self.config.get("webdav_password", "")),
-            "company_name": tk.StringVar(value=self.config.get("company_name", "")),
-            "scan_prefix": tk.StringVar(value=self.config.get("scan_prefix", "")),
-        }
-        for key, label in [
-            ("workbook_path", "기본 엑셀 경로"),
-            ("nas_sync_dir", "Web Station 폴더"),
-            ("nas_base_url", "DDNS / Web URL"),
-            ("netlify_site_url", "Netlify URL"),
-            ("webdav_url", "WebDAV URL"),
-            ("webdav_username", "WebDAV 계정"),
-            ("webdav_password", "WebDAV 비밀번호"),
-            ("company_name", "기본 담당자"),
-            ("scan_prefix", "QR 텍스트 Prefix"),
-        ]:
-            row = tk.Frame(win, bg=UI["panel"])
-            row.pack(fill="x", padx=16, pady=8)
-            tk.Label(row, text=label, width=16, anchor="w", bg=UI["panel"], font=("맑은 고딕", 10, "bold")).pack(side="left")
-            tk.Entry(row, textvariable=vars_map[key], font=("맑은 고딕", 10)).pack(side="left", fill="x", expand=True)
-        guide = (
-            "권장 방식: QuickConnect 대신 DDNS + Web Station 주소를 사용하세요.\n"
-            "권장 예시: Web Station 폴더=\\\\NAS\\web, DDNS / Web URL=https://sejiqc26.synology.me\n"
-            "백슬래시 입력이 어려우면 //192.168.0.2/web 처럼 슬래시로 입력해도 됩니다.\n"
-            "cards 폴더를 직접 넣어도 됩니다: \\\\NAS\\web\\cards / https://sejiqc26.synology.me/cards\n"
-            "QR은 https://.../cards/SJ-CF-001.html 형식으로 생성됩니다."
-        )
-        tk.Label(win, text=guide, justify="left", wraplength=660, bg=UI["panel"], fg=UI["muted"], font=("맑은 고딕", 9)).pack(anchor="w", padx=16, pady=(4, 10))
-
-        def save_and_close():
-            candidate_url = vars_map["nas_base_url"].get().strip()
-            if candidate_url and is_quickconnect_url(candidate_url):
-                messagebox.showwarning(
-                    "DDNS / Web Station 권장",
-                    "QuickConnect 주소는 검사구 QR 공개 링크용으로 적합하지 않습니다.\n"
-                    "DDNS 또는 Web Station URL을 넣어 주세요.\n"
-                    "예: https://sejiqc26.synology.me/tool-history",
-                )
-                return
-            for key, var in vars_map.items():
-                if key == "nas_sync_dir":
-                    self.config[key] = normalize_network_path(var.get())
-                else:
-                    self.config[key] = var.get().strip()
-            save_config(self.config)
-            self.reset_inspection_form()
-            if self.selected_management_no:
-                self.refresh_qr_preview(self.selected_management_no)
-            self.status_var.set("설정을 저장했습니다.")
-            win.destroy()
-
-        self.make_button(win, "저장", save_and_close, "primary", padx=20).pack(anchor="e", padx=16, pady=12)
 
     def open_settings(self):
         win = tk.Toplevel(self.root)
