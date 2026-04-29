@@ -1,0 +1,18 @@
+/approval_mvp.db
+__pycache__/
+*.py[cod]
+*.db-journal
+*.db-wal
+*.db-shm
+/approval_server.err.log
+/approval_server.out.log
+/inspection_tool_runtime
+/py to exe
+/RPA
+/sub품 식별표
+/test_start.err.log
+/test_start.out.log
+/비전검사
+/전자결재
+/출장복명서
+/클레임 자동화

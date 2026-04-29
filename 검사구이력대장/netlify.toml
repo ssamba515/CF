@@ -1,0 +1,9 @@
+[build]
+  publish = "export"
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+

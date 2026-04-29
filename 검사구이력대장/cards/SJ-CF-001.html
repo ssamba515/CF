@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SJ-CF-001 Inspection Card</title>
+  <style>
+    :root { --bg:#f5f7fb; --panel:#ffffff; --text:#111827; --muted:#5b6472; --line:#111827; --soft:#f3f4f6; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Malgun Gothic", Arial, sans-serif; background:linear-gradient(180deg,#f5f7fb 0%,#eef4ef 100%); color:var(--text); }
+    .wrap { max-width:1120px; margin:0 auto; padding:24px; }
+    .sheet { position:relative; background:var(--panel); border:1px solid #d8dee8; border-radius:18px; padding:26px 34px; box-shadow:0 12px 28px rgba(17,24,39,.08); }
+    .title { font-size:28px; font-weight:800; margin:0 0 6px; letter-spacing:.02em; }
+    .sub { color:var(--muted); margin:0 0 22px; }
+    .top-grid { display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:stretch; margin:22px 0 18px 0; }
+    .photo-card { background:#fff; border:1px solid #d5dbe5; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:222px; padding:5%; }
+    .qr-card { position:absolute; top:14px; right:34px; width:64px; height:64px; display:flex; align-items:center; justify-content:center; }
+    .lead-photo { width:100%; height:100%; object-fit:contain; display:block; }
+    .lead-photo-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .qr-image { width:100%; height:100%; object-fit:contain; display:block; }
+    .info-table { width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #d5dbe5; }
+    .info-table th,.info-table td { border-bottom:1px solid #d5dbe5; border-right:1px solid #d5dbe5; padding:10px 12px; text-align:center; vertical-align:middle; }
+    .info-table tr:last-child th,.info-table tr:last-child td { border-bottom:0; }
+    .info-table th:last-child,.info-table td:last-child { border-right:0; }
+    .info-table th { width:13%; background:#f3f7f4; font-weight:800; letter-spacing:.08em; white-space:nowrap; }
+    .info-table td { width:20%; font-size:17px; font-weight:700; word-break:break-word; }
+    .section-title { font-size:18px; font-weight:800; margin:22px 0 10px; }
+    .table-card { overflow:auto; }
+    .history-table { width:100%; border-collapse:collapse; min-width:860px; border:1px solid #d5dbe5; }
+    .history-table th,.history-table td { border-bottom:1px solid #d5dbe5; padding:12px 10px; text-align:center; vertical-align:middle; }
+    .history-table th { background:#f3f7f4; font-weight:800; }
+    .qr { margin-top:18px; color:var(--muted); font-size:12px; word-break:break-all; }
+    @media (max-width:760px) {
+      .wrap { padding:12px; }
+      .sheet { padding:18px 14px; }
+      .top-grid { grid-template-columns:1fr; margin-right:0; }
+      .photo-card { width:140px; min-height:150px; }
+      .qr-card { width:86px; height:86px; }
+      .info-table th,.info-table td { padding:8px 6px; font-size:13px; }
+      .info-table th { letter-spacing:0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="sheet">
+      <h1 class="title">Inspection History Card</h1>
+      <p class="sub">HTML card for QR scan or management number lookup</p>
+      <div class="top-grid">
+      <div class="photo-card"><div class="lead-photo lead-photo-empty">사진</div></div>
+      <table class="info-table">
+        <tbody>
+          <tr>
+            <th>관리번호</th>
+            <td>SJ-CF-001</td>
+            <th>고객사</th>
+            <td>푸틴</td>
+          </tr>
+          <tr>
+            <th>차종</th>
+            <td>P42M</td>
+            <th>품명</th>
+            <td>FRT DOOR ORNAMENT LH</td>
+          </tr>
+          <tr>
+            <th>품번</th>
+            <td>1234-5678</td>
+            <th>점검주기</th>
+            <td>1회/년</td>
+          </tr>
+          <tr>
+            <th>보관장소</th>
+            <td>측정실</td>
+            <th>사용부서</th>
+            <td>품질팀</td>
+          </tr>
+          <tr>
+            <th>제작일자</th>
+            <td>1999.05.21</td>
+            <th>제작업체</th>
+            <td>세지솔로텍</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="qr-card"><img class="qr-image" src="../qrcode/SJ-CF-001.png" alt="QR"></div>
+      <div class="section-title">Inspection History</div>
+      <div class="table-card">
+      <table class="history-table">
+        <thead>
+          <tr><th>No.</th><th>Date</th><th>Result</th><th>Usage</th><th>Manager</th><th>Approver</th><th>Memo</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+              <td>1</td>
+              <td>2026-04-15</td>
+              <td>재검 필요</td>
+              <td>사용</td>
+              <td>박희균</td>
+              <td>이만용</td>
+              <td></td>
+            </tr>
+            
+
+            <tr>
+              <td>2</td>
+              <td>2026-04-17</td>
+              <td>양호</td>
+              <td>사용</td>
+              <td>박희균</td>
+              <td>이만용</td>
+              <td></td>
+            </tr>
+            </tbody>
+      </table>
+      </div>
+      <div class="qr">QR: https://sejiqc.synology.me/cards/SJ-CF-001.html</div>
+    </section>
+  </div>
+</body>
+</html>
