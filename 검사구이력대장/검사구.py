@@ -398,6 +398,11 @@ def add_inspection_record(record):
             "id": len(data["inspections"]) + 1,
             "management_no": management_no,
             "inspection_date": normalize_text(record.get("inspection_date")),
+            "master_sample_match": normalize_text(record.get("master_sample_match")),
+            "storage_status": normalize_text(record.get("storage_status")),
+            "cleaning_status": normalize_text(record.get("cleaning_status")),
+            "wear_status": normalize_text(record.get("wear_status")),
+            "fit_status": normalize_text(record.get("fit_status")),
             "result_text": normalize_text(record.get("result_text")),
             "usage_flag": normalize_text(record.get("usage_flag")),
             "author": normalize_text(record.get("author")),
@@ -417,6 +422,11 @@ def update_inspection_record(inspection_id, record):
             item.update(
                 {
                     "inspection_date": normalize_text(record.get("inspection_date")),
+                    "master_sample_match": normalize_text(record.get("master_sample_match")),
+                    "storage_status": normalize_text(record.get("storage_status")),
+                    "cleaning_status": normalize_text(record.get("cleaning_status")),
+                    "wear_status": normalize_text(record.get("wear_status")),
+                    "fit_status": normalize_text(record.get("fit_status")),
                     "result_text": normalize_text(record.get("result_text")),
                     "usage_flag": normalize_text(record.get("usage_flag")),
                     "author": normalize_text(record.get("author")),
@@ -928,14 +938,14 @@ def build_tool_html_safe(tool, inspections, qr_payload):
             f"""
             <tr>
               <td>{escape(normalize_text(item['inspection_date']))}</td>
-              <td>-</td>
-              <td>{escape(normalize_text(item['usage_flag'])) or "-"}</td>
-              <td>-</td>
-              <td>-</td>
-              <td>-</td>
-              <td>{escape(normalize_text(item['result_text']))}</td>
+              <td>{escape(normalize_text(item.get('master_sample_match'))) or "-"}</td>
+              <td>{escape(normalize_text(item.get('storage_status')) or normalize_text(item.get('usage_flag'))) or "-"}</td>
+              <td>{escape(normalize_text(item.get('cleaning_status'))) or "-"}</td>
+              <td>{escape(normalize_text(item.get('wear_status'))) or "-"}</td>
+              <td>{escape(normalize_text(item.get('fit_status'))) or "-"}</td>
+              <td>{escape(normalize_text(item['result_text'])) or "-"}</td>
               <td>{approval_html}</td>
-              <td>{escape(normalize_text(item['memo']))}</td>
+              <td>{escape(normalize_text(item['memo'])) or "-"}</td>
             </tr>
             """
         )
@@ -949,29 +959,29 @@ def build_tool_html_safe(tool, inspections, qr_payload):
   <style>
     :root {{ --bg:#f5f7fb; --panel:#ffffff; --text:#111827; --muted:#5b6472; --line:#111827; --soft:#f3f4f6; }}
     * {{ box-sizing: border-box; }}
-    body {{ margin:0; font-family:"Malgun Gothic", Arial, sans-serif; background:linear-gradient(180deg,#f5f7fb 0%,#eef4ef 100%); color:var(--text); }}
-    .wrap {{ max-width:1120px; margin:0 auto; padding:24px; }}
-    .sheet {{ position:relative; background:var(--panel); border:1px solid #d8dee8; border-radius:18px; padding:26px 34px; box-shadow:0 12px 28px rgba(17,24,39,.08); }}
-    .title {{ font-size:28px; font-weight:800; margin:0 0 6px; letter-spacing:.02em; }}
-    .sub {{ color:var(--muted); margin:0 0 22px; }}
-    .top-grid {{ display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:stretch; margin:22px 0 18px 0; }}
-    .photo-card {{ background:#fff; border:1px solid #d5dbe5; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:222px; padding:5%; }}
+    body {{ margin:0; font-family:"Malgun Gothic", Arial, sans-serif; background:#f5f7fb; color:var(--text); }}
+    .wrap {{ max-width:1120px; margin:0 auto; padding:12px 18px; }}
+    .sheet {{ position:relative; background:var(--panel); border:1px solid #d8dee8; border-radius:6px; padding:22px 34px 24px; box-shadow:0 8px 18px rgba(17,24,39,.06); }}
+    .title {{ font-size:28px; font-weight:800; margin:0 0 6px; letter-spacing:0; }}
+    .sub {{ color:var(--muted); margin:0 0 18px; }}
+    .top-grid {{ display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:stretch; margin:18px 0 22px 0; }}
+    .photo-card {{ background:#fff; border:1px solid #cfd8e6; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:222px; padding:5%; }}
     .qr-card {{ position:absolute; top:14px; right:34px; width:64px; height:64px; display:flex; align-items:center; justify-content:center; }}
     .lead-photo {{ width:100%; height:100%; object-fit:contain; display:block; }}
     .lead-photo-empty {{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:20px; }}
     .qr-image {{ width:100%; height:100%; object-fit:contain; display:block; }}
-    .info-table {{ width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #d5dbe5; }}
-    .info-table th,.info-table td {{ border-bottom:1px solid #d5dbe5; border-right:1px solid #d5dbe5; padding:10px 12px; text-align:center; vertical-align:middle; }}
+    .info-table {{ width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #cfd8e6; }}
+    .info-table th,.info-table td {{ border-bottom:1px solid #cfd8e6; border-right:1px solid #cfd8e6; padding:10px 12px; text-align:center; vertical-align:middle; }}
     .info-table tr:last-child th,.info-table tr:last-child td {{ border-bottom:0; }}
     .info-table th:last-child,.info-table td:last-child {{ border-right:0; }}
-    .info-table th {{ width:13%; background:#f3f7f4; font-weight:800; letter-spacing:.08em; white-space:nowrap; }}
-    .info-table td {{ width:20%; font-size:17px; font-weight:700; word-break:break-word; }}
-    .section-title {{ background:#d9d9d9; border:2px solid var(--line); border-bottom:0; font-size:22px; font-weight:800; margin:22px 0 0; padding:10px; text-align:center; }}
+    .info-table th {{ width:13%; background:#f1f3f5; font-weight:800; letter-spacing:0; white-space:nowrap; }}
+    .info-table td {{ width:20%; font-size:16px; font-weight:700; word-break:break-word; }}
+    .section-title {{ background:#d9d9d9; border:1px solid var(--line); border-bottom:0; font-size:20px; font-weight:800; margin:22px 0 0; padding:9px; text-align:center; }}
     .table-card {{ overflow:auto; }}
-    .history-table {{ width:100%; border-collapse:collapse; min-width:980px; border:2px solid var(--line); }}
-    .history-table th,.history-table td {{ border:2px solid var(--line); padding:10px 8px; text-align:center; vertical-align:middle; }}
-    .history-table th {{ background:#d9d9d9; font-size:18px; font-weight:800; line-height:1.35; }}
-    .history-table td {{ min-height:42px; }}
+    .history-table {{ width:100%; border-collapse:collapse; min-width:980px; border:1px solid var(--line); }}
+    .history-table th,.history-table td {{ border:1px solid var(--line); padding:8px 8px; text-align:center; vertical-align:middle; }}
+    .history-table th {{ background:#d9d9d9; font-size:16px; font-weight:800; line-height:1.32; }}
+    .history-table td {{ font-size:14px; height:38px; }}
     .qr {{ margin-top:18px; color:var(--muted); font-size:12px; word-break:break-all; }}
     @media (max-width:760px) {{
       .wrap {{ padding:12px; }}
@@ -1499,6 +1509,11 @@ class ToolInspectionApp:
     def init_inspection_vars(self):
         self.inspection_vars = {
             "inspection_date": tk.StringVar(value=datetime.now().strftime("%Y-%m-%d")),
+            "master_sample_match": tk.StringVar(),
+            "storage_status": tk.StringVar(),
+            "cleaning_status": tk.StringVar(),
+            "wear_status": tk.StringVar(),
+            "fit_status": tk.StringVar(),
             "result_text": tk.StringVar(),
             "usage_flag": tk.StringVar(value="사용"),
             "author": tk.StringVar(value=self.config.get("company_name", "품질팀")),
@@ -1517,18 +1532,21 @@ class ToolInspectionApp:
         history_wrap.pack(fill="both", expand=True, padx=PANEL_PAD, pady=(0, 8))
         self.history_tree = ttk.Treeview(
             history_wrap,
-            columns=("seq", "inspection_date", "result_text", "usage_flag", "reviewer", "approver"),
+            columns=("inspection_date", "master_sample_match", "storage_status", "cleaning_status", "wear_status", "fit_status", "result_text", "approval", "memo"),
             show="headings",
             height=7,
             style="Modern.Treeview",
         )
         for name, title, width in [
-            ("seq", "순", 50),
-            ("inspection_date", "일자", 100),
-            ("result_text", "점검결과", 473),
-            ("usage_flag", "사용 유무", 80),
-            ("reviewer", "담당", 85),
-            ("approver", "승인", 85),
+            ("inspection_date", "점검일", 90),
+            ("master_sample_match", "MASTER SAMPLE", 120),
+            ("storage_status", "보관 여부", 90),
+            ("cleaning_status", "청소여부", 90),
+            ("wear_status", "마모상태", 90),
+            ("fit_status", "유격상태", 90),
+            ("result_text", "판정", 100),
+            ("approval", "결재", 110),
+            ("memo", "비고", 160),
         ]:
             self.history_tree.heading(name, text=title, anchor="center")
             self.history_tree.column(name, width=width, minwidth=width, anchor="center", stretch=False)
@@ -1548,8 +1566,8 @@ class ToolInspectionApp:
         self.editing_inspection_id = int(inspection["id"]) if inspection else None
         self.inspection_dialog.title("이력 수정" if inspection else "이력 추가")
         self.inspection_dialog.configure(bg=UI["panel"])
-        self.inspection_dialog.geometry("560x285")
-        self.inspection_dialog.minsize(520, 260)
+        self.inspection_dialog.geometry("860x390")
+        self.inspection_dialog.minsize(760, 360)
         self.inspection_dialog.resizable(True, True)
         self.inspection_dialog.transient(self.root)
         self.inspection_dialog.protocol("WM_DELETE_WINDOW", self.close_inspection_dialog)
@@ -1587,29 +1605,36 @@ class ToolInspectionApp:
         entry_card.grid(row=1, column=0, sticky="ew", pady=(0, 12))
         entry_card.grid_columnconfigure(1, weight=1)
         entry_card.grid_columnconfigure(3, weight=1)
+        entry_card.grid_columnconfigure(5, weight=1)
 
         field_layout = [
             ("inspection_date", "점검일자", 0, 0),
-            ("usage_flag", "사용 유무", 0, 2),
-            ("result_text", "점검결과", 1, 0),
-            ("reviewer", "담당", 2, 0),
-            ("approver", "승인", 2, 2),
+            ("master_sample_match", "MASTER SAMPLE", 0, 2),
+            ("storage_status", "보관 여부", 1, 0),
+            ("cleaning_status", "청소여부", 1, 2),
+            ("wear_status", "마모상태", 2, 0),
+            ("fit_status", "유격상태", 2, 2),
+            ("result_text", "판정", 3, 0),
+            ("reviewer", "담당", 3, 2),
+            ("approver", "승인", 3, 4),
         ]
         for key, label, row, label_col in field_layout:
             entry_col = label_col + 1
-            tk.Label(entry_card, text=label, width=9, anchor="w", bg=UI["soft"], fg=UI["text"], font=("맑은 고딕", 10, "bold")).grid(row=row, column=label_col, sticky="w", padx=(14 if label_col == 0 else 18, 8), pady=(12 if row == 0 else 8, 12 if row == 2 else 4))
+            label_width = 13 if key == "master_sample_match" else 9
+            tk.Label(entry_card, text=label, width=label_width, anchor="w", bg=UI["soft"], fg=UI["text"], font=("맑은 고딕", 10, "bold")).grid(row=row, column=label_col, sticky="w", padx=(14 if label_col == 0 else 18, 8), pady=(12 if row == 0 else 8, 10 if row == 3 else 4))
             if key == "inspection_date":
                 date_row = tk.Frame(entry_card, bg=UI["soft"])
-                date_row.grid(row=row, column=entry_col, sticky="ew", padx=(0, 14), pady=(12 if row == 0 else 8, 12 if row == 2 else 4))
+                date_row.grid(row=row, column=entry_col, sticky="ew", padx=(0, 14), pady=(12 if row == 0 else 8, 10 if row == 3 else 4))
                 date_row.grid_columnconfigure(0, weight=1)
                 date_entry = tk.Entry(date_row, textvariable=self.inspection_vars[key], font=("맑은 고딕", 10), relief="solid", bd=1, state="readonly", cursor="hand2")
                 date_entry.grid(row=0, column=0, sticky="ew", ipady=3)
                 date_entry.bind("<Button-1>", lambda _event: self.open_inspection_date_picker())
             else:
-                columnspan = 3 if key == "result_text" else 1
-                tk.Entry(entry_card, textvariable=self.inspection_vars[key], font=("맑은 고딕", 10), relief="solid", bd=1).grid(row=row, column=entry_col, columnspan=columnspan, sticky="ew", padx=(0, 14), pady=(12 if row == 0 else 8, 12 if row == 2 else 4), ipady=3)
+                tk.Entry(entry_card, textvariable=self.inspection_vars[key], font=("맑은 고딕", 10), relief="solid", bd=1).grid(row=row, column=entry_col, sticky="ew", padx=(0, 14), pady=(12 if row == 0 else 8, 10 if row == 3 else 4), ipady=3)
 
-        self.inspection_memo = None
+        tk.Label(entry_card, text="비고", width=9, anchor="w", bg=UI["soft"], fg=UI["text"], font=("맑은 고딕", 10, "bold")).grid(row=4, column=0, sticky="nw", padx=(14, 8), pady=(4, 12))
+        self.inspection_memo = tk.Text(entry_card, width=1, height=3, font=("맑은 고딕", 10), relief="solid", bd=1, wrap="word")
+        self.inspection_memo.grid(row=4, column=1, columnspan=5, sticky="ew", padx=(0, 14), pady=(4, 12))
 
     def open_inspection_date_picker(self):
         current = self.inspection_vars["inspection_date"].get().strip()
@@ -1920,11 +1945,24 @@ class ToolInspectionApp:
         for item in self.history_tree.get_children():
             self.history_tree.delete(item)
         for index, row in enumerate(list_inspections(management_no), start=1):
+            reviewer = normalize_text(row.get("reviewer")) or normalize_text(row.get("author"))
+            approver = normalize_text(row.get("approver"))
+            approval = " / ".join(part for part in [reviewer, approver] if part)
             self.history_tree.insert(
                 "",
                 "end",
                 iid=f"history-{row['id']}",
-                values=(index, row["inspection_date"], row["result_text"], row["usage_flag"], row["reviewer"], row["approver"]),
+                values=(
+                    row["inspection_date"],
+                    normalize_text(row.get("master_sample_match")),
+                    normalize_text(row.get("storage_status")) or normalize_text(row.get("usage_flag")),
+                    normalize_text(row.get("cleaning_status")),
+                    normalize_text(row.get("wear_status")),
+                    normalize_text(row.get("fit_status")),
+                    normalize_text(row.get("result_text")),
+                    approval,
+                    normalize_text(row.get("memo")),
+                ),
             )
 
     def refresh_qr_preview(self, management_no, tool=None):
@@ -1974,9 +2012,9 @@ class ToolInspectionApp:
             return
         payload = {key: self.inspection_vars[key].get() for key in self.inspection_vars}
         payload["author"] = payload.get("reviewer", "")
+        payload["usage_flag"] = payload.get("storage_status", "")
         payload["management_no"] = self.selected_management_no
-        existing = get_inspection_record(self.editing_inspection_id) if self.editing_inspection_id else {}
-        payload["memo"] = normalize_text(existing.get("memo"))
+        payload["memo"] = self.inspection_memo.get("1.0", "end").strip() if self.inspection_memo is not None else ""
         try:
             if self.editing_inspection_id:
                 update_inspection_record(self.editing_inspection_id, payload)
@@ -1995,6 +2033,8 @@ class ToolInspectionApp:
     def load_inspection_form(self, inspection):
         for key in self.inspection_vars:
             self.inspection_vars[key].set(normalize_text(inspection.get(key, "")))
+        if not self.inspection_vars["storage_status"].get():
+            self.inspection_vars["storage_status"].set(normalize_text(inspection.get("usage_flag", "")))
         if not self.inspection_vars["author"].get():
             self.inspection_vars["author"].set(normalize_text(inspection.get("reviewer", "")))
         if self.inspection_memo is not None and self.inspection_memo.winfo_exists():
@@ -2003,8 +2043,13 @@ class ToolInspectionApp:
 
     def reset_inspection_form(self):
         self.inspection_vars["inspection_date"].set(datetime.now().strftime("%Y-%m-%d"))
+        self.inspection_vars["master_sample_match"].set("")
+        self.inspection_vars["storage_status"].set("")
+        self.inspection_vars["cleaning_status"].set("")
+        self.inspection_vars["wear_status"].set("")
+        self.inspection_vars["fit_status"].set("")
         self.inspection_vars["result_text"].set("")
-        self.inspection_vars["usage_flag"].set("사용")
+        self.inspection_vars["usage_flag"].set("")
         self.inspection_vars["author"].set("")
         self.inspection_vars["reviewer"].set("")
         self.inspection_vars["approver"].set("")
